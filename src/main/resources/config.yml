@@ -1,0 +1,173 @@
+# PrismWardrobe main configuration
+# ------------------------------------------------------------
+# Reload supported with: /wardrobe reload
+# This file controls behavior, storage, integrations, anti-dupe, and performance.
+# All text is configured in lang/*.yml.
+
+language:
+  # Global language file name loaded from /plugins/PrismWardrobe/lang/<active>.yml
+  # Fallback keys are always pulled from lang/en_US.yml when missing.
+  # Example values: en_US, es_ES, fr_FR
+  active: en_US
+
+messages:
+  # Message parser mode:
+  # LEGACY = parse only & color codes
+  # MINIMESSAGE = parse only MiniMessage tags
+  # BOTH = auto-detect and support both formats (recommended for mixed configs)
+  format-mode: BOTH # LEGACY | MINIMESSAGE | BOTH
+
+wardrobe:
+  # Base number of unlocked slots for players with no rank slot permissions.
+  # Final slot amount is computed from:
+  # max( default-slots, highest prismwardrobe.slots.<n> permission ) + admin bonus slots
+  default-slots: 8
+
+  # Hard upper limit to protect UI, database size, and misuse.
+  # Even with permissions/bonuses, players cannot exceed this cap.
+  max-slots-cap: 54
+
+  # Number of GUI pages exposed in the wardrobe menu.
+  # Extra pages beyond a player's unlocked slot cap will render as locked slots.
+  # Keep this >= 1.
+  max-pages: 2
+
+  # Cooldown after successful equip.
+  # Players with prismwardrobe.bypass.cooldown ignore this.
+  equip-cooldown-seconds: 3
+
+storage:
+  # Storage backend:
+  # SQLITE = local single-file storage, easiest setup
+  # MYSQL = shared DB for multi-server/network deployments
+  type: SQLITE # SQLITE | MYSQL
+
+  sqlite:
+    # Relative path from plugin data folder.
+    # Example absolute output path:
+    # /plugins/PrismWardrobe/data/wardrobe.db
+    file: data/wardrobe.db
+
+  mysql:
+    # MySQL/MariaDB connection details.
+    host: 127.0.0.1
+    port: 3306
+    database: prismwardrobe
+    username: root
+    password: change_me
+
+    # JDBC query params appended to connection URL.
+    # Add timezone, SSL, or performance params here as needed.
+    params: useUnicode=true&characterEncoding=utf8&useSSL=false
+
+  pool:
+    # HikariCP pool sizing.
+    # max-size: upper bound of open DB connections.
+    # min-idle: idle connections kept ready.
+    # connection-timeout-ms: how long to wait for a free connection before failing.
+    max-size: 10
+    min-idle: 2
+    connection-timeout-ms: 10000
+
+performance:
+  cache:
+    # In-memory profile cache.
+    # max-size: approximate maximum player profiles cached before eviction.
+    # expire-after-seconds: idle TTL before profile is evicted from cache.
+    max-size: 100000
+    expire-after-seconds: 600
+
+  sync:
+    # Cross-instance sync polling (mainly for MYSQL shared DB mode).
+    # poll-seconds: interval for checking profile version updates.
+    # batch-size: online players checked per DB batch query.
+    poll-seconds: 5
+    batch-size: 150
+
+  database:
+    # Async DB write queue and retry policy.
+    # write-queue-capacity: max queued writes before rejection.
+    # write-retries: retries after DB operation failure.
+    # retry-delay-ms: delay between retry attempts.
+    # worker-threads: async DB workers (increase for heavy load).
+    write-queue-capacity: 2048
+    write-retries: 3
+    retry-delay-ms: 150
+    worker-threads: 4
+
+  health:
+    # Interval for internal health log lines:
+    # cache size/hit rate, DB queue depth/latency, sync poll timing, etc.
+    log-seconds: 120
+
+restrictions:
+  # Master restriction toggle for equip checks.
+  # If false, world/gamemode/combat/placeholder restrictions are skipped.
+  enabled: true
+
+  # Worlds that can never use equip (case-insensitive world names).
+  blocked-worlds: []
+
+  # Optional allow-list. If non-empty, only listed worlds are allowed.
+  # This check runs before blocked-worlds.
+  allowed-worlds: []
+
+  # Gamemodes where equip is blocked.
+  blocked-gamemodes:
+    - SPECTATOR
+
+  combat-check:
+    # Uses detected combat hook provider (e.g., CombatLogX adapter) when enabled.
+    enabled: true
+
+  placeholder-rules:
+    # Rules evaluated only when PlaceholderAPI is present and enabled in integrations.
+    # If placeholder output matches any disallow-values, equip is blocked with reason-key.
+    # Add multiple entries under this section as needed.
+    region_block_example:
+      placeholder: "%worldguard_region_name%"
+      disallow-values:
+        - spawn
+      reason-key: restriction.placeholder
+
+integrations:
+  placeholderapi:
+    # Enables PlaceholderAPI usage for restrictions/messages/placeholders.
+    enabled: true
+  vault:
+    # Enables Vault hook discovery (economy hook is optional and architecture-ready).
+    enabled: true
+  combat:
+    # Enables combat hook discovery for restriction checks.
+    enabled: true
+
+gui:
+  # Runtime feedback toggles (does not define GUI layout; see gui.yml for layout).
+  sounds:
+    enabled: true
+  actionbar:
+    enabled: true
+  titles:
+    enabled: true
+  animations:
+    enabled: true
+
+    # Tick delay used by click animation/feedback scheduling.
+    # 20 ticks = 1 second.
+    click-delay-ticks: 2
+
+anti-dupe:
+  # Strict container lock:
+  # true  = block interaction with non-player containers while wearing bound wardrobe armor
+  # false = allow container interaction, while still enforcing bound-item move/drop protections
+  strict-container-lock: false
+
+metrics:
+  # bStats toggle.
+  # Set plugin-id from your bStats page when publishing.
+  enabled: false
+  plugin-id: 0
+
+debug:
+  # Enables additional debug logging (correlation IDs and action traces).
+  enabled: false

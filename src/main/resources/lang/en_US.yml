@@ -1,0 +1,148 @@
+# PrismWardrobe default language file (fallback)
+# ---------------------------------------------------------------------------
+# This file is loaded as the hard fallback locale.
+# Missing keys from your selected language are pulled from this file.
+#
+# Formatting:
+# - Works with message format mode from config.yml:
+#   - LEGACY: supports & color format
+#   - MINIMESSAGE: supports <red>, <bold>, etc.
+#   - BOTH: supports either style
+#
+# Placeholders used by PrismWardrobe (only replace placeholders you use):
+# - {page}, {max_page}: GUI paging state
+# - {slot}, {max}: slot indexes and limits
+# - {name}: wardrobe set name
+# - {seconds}: cooldown / timer value
+# - {world}, {gamemode}: restriction details
+# - {player}: target player name
+# - {old}, {new}: admin slot updates
+# - {target}, {players}, {sets}: migration results
+# - {root}: active command alias used (for help output)
+# - {value}, {reason}, {message}: validation/storage details
+#
+# Tip: Use <newline> in lore values when you need manual line breaks.
+
+# GUI labels, titles, and lore lines.
+gui:
+  # Main wardrobe title.
+  main-title: "<dark_gray>Wardrobe (Page {page}/{max_page})</dark_gray>"
+
+  # Empty slot card (no armor set stored).
+  slot-empty-name: "<gray>Empty Slot</gray>"
+  slot-empty-lore: "<dark_gray>Drag armor here from your inventory</dark_gray>"
+
+  # Saved slot card (existing armor set).
+  slot-saved-name: "<gold>Wardrobe Slot {slot}</gold>"
+  slot-saved-lore:
+    - "<gray>Set: <gold>{name}</gold>"
+    - " "
+    - "<yellow>Left-Click</yellow> <gray>to take this piece</gray>"
+    - "<yellow>Drag/Click armor</yellow> <gray>from your inventory to place</gray>"
+
+  # Locked slot card (insufficient slot permissions).
+  slot-locked-name: "<dark_gray>Locked Slot</dark_gray>"
+  slot-locked-lore: "<gray>Unlock with a higher rank!</gray>"
+
+  # Cooldown slot card.
+  slot-cooldown-name: "<gray>Wardrobe Slot {slot}</gray>"
+  slot-cooldown-lore: "<red>On cooldown: {seconds}s</red>"
+
+  # Per-column equip button.
+  equip-button-name: "<green>Equip Set {slot}</green>"
+  equip-button-lore: "<gray>Click to equip this armor set</gray>"
+  # Visual state shown when the set is currently equipped.
+  equip-button-equipped-name: "<yellow><bold>Unequip Set {slot}</bold></yellow>"
+  equip-button-equipped-lore: "<gray>Click again to unequip this set</gray>"
+
+  # Filler panes (single space keeps item name visually blank).
+  control-filler-name: " "
+
+  # Page navigation controls.
+  nav-previous-name: "<green><< Previous Page</green>"
+  nav-previous-lore: "<gray>Page {page}/{max_page}</gray>"
+  nav-next-name: "<green>Next Page >></green>"
+  nav-next-lore: "<gray>Page {page}/{max_page}</gray>"
+  nav-center-name: "<red>Close</red>"
+  nav-center-lore: "<gray>Close the wardrobe</gray>"
+
+  # Generic GUI warning keys.
+  no-selected-set: "<red>No slot selected!</red>"
+
+# Restriction reason messages used by rule engine checks.
+restriction:
+  allow: "<gray>Allowed</gray>"
+  world-not-allowed: "<red>You cannot use wardrobe in this world.</red>"
+  world-blocked: "<red>Wardrobe is blocked in world: {world}</red>"
+  gamemode-blocked: "<red>Wardrobe is disabled in gamemode: {gamemode}</red>"
+  in-combat: "<red>You are in combat!</red>"
+  placeholder: "<red>You cannot use wardrobe right now.</red>"
+
+# Positive outcomes from commands/GUI actions.
+success:
+  saved: "<green>Saved armor to slot <yellow>{slot}</yellow>!</green>"
+  equipped: "<green>Equipped <gold>{name}</gold>!</green>"
+  unequipped: "<green>Unequipped <gold>{name}</gold>.</green>"
+  deleted: "<green>Deleted slot <yellow>{slot}</yellow>.</green>"
+  renamed: "<green>Renamed slot <yellow>{slot}</yellow> to <gold>{name}</gold>.</green>"
+  armor-taken: "<green>Took armor from slot <yellow>{slot}</yellow>.</green>"
+  armor-placed: "<green>Placed armor in slot <yellow>{slot}</yellow>.</green>"
+  reloaded: "<green>PrismWardrobe reloaded!</green>"
+  migration-complete: "<green>Migration to <yellow>{target}</yellow> complete! Players: {players}, Sets: {sets}</green>"
+  admin-setslots: "<green>Set <yellow>{player}</yellow> bonus slots: <gold>{old}</gold> -> <gold>{new}</gold></green>"
+  admin-clearslots: "<green>Cleared bonus slots for <yellow>{player}</yellow>.</green>"
+
+# Error and denial messages for command/GUI parity.
+error:
+  no-permission: "<red>You don't have permission!</red>"
+  player-only: "<red>This command is player-only.</red>"
+  player-offline: "<red>That player is offline.</red>"
+  player-not-found: "<red>Player not found: <yellow>{player}</yellow></red>"
+  unknown-subcommand: "<red>Unknown subcommand.</red>"
+  unknown: "<red>An error occurred.</red>"
+  invalid-slot: "<red>Invalid slot: <yellow>{slot}</yellow></red>"
+  invalid-number: "<red>Invalid number: <yellow>{value}</yellow></red>"
+  invalid-name: "<red>Invalid name.</red>"
+  name-too-long: "<red>Name too long! Max: <yellow>{max}</yellow></red>"
+  slot-locked: "<red>Slot <yellow>{slot}</yellow> is locked! Max: <yellow>{max}</yellow></red>"
+  cooldown: "<red>Cooldown: <yellow>{seconds}s</yellow></red>"
+  event-cancelled: "<red>Action cancelled.</red>"
+  no-armor-to-save: "<red>You're not wearing any armor!</red>"
+  nothing-saved: "<red>Nothing saved in slot <yellow>{slot}</yellow>.</red>"
+  armor-slot-not-empty: "<red>Remove your <yellow>{slot}</yellow> first!</red>"
+  wrong-armor-type: "<red>That armor piece doesn't go in this slot!</red>"
+  inventory-full: "<red>Your inventory is full!</red>"
+  bound-armor-locked: "<red>Wardrobe armor is locked and cannot be moved, dropped, or removed manually.</red>"
+  bound-armor-container-locked: "<red>You cannot interact with containers while wearing locked wardrobe armor.</red>"
+  cannot-edit-equipped-piece: "<red>Unequip slot <yellow>{slot}</yellow> before editing this armor piece.</red>"
+  cannot-delete-equipped: "<red>You cannot delete slot <yellow>{slot}</yellow> while wearing it.</red>"
+  storage: "<red>Storage error: <yellow>{reason}</yellow></red>"
+  migration-failed: "<red>Migration failed: <yellow>{message}</yellow></red>"
+
+# Help output for /wardrobe help.
+help:
+  header: "<gold>PrismWardrobe Commands:</gold>"
+  open: "<gray>{root}</gray> <dark_gray>-</dark_gray> <yellow>Open your wardrobe GUI (player only)</yellow>"
+  list: "<gray>{root} list [player]</gray> <dark_gray>-</dark_gray> <yellow>List stored wardrobe sets</yellow>"
+  reload: "<gray>{root} reload</gray> <dark_gray>-</dark_gray> <yellow>Reload config, gui, and language files</yellow>"
+  migrate: "<gray>{root} migrate <sqlite|mysql> [--dry-run]</gray> <dark_gray>-</dark_gray> <yellow>Migrate storage data</yellow>"
+  admin-open: "<gray>{root} admin open <player></gray> <dark_gray>-</dark_gray> <yellow>Open another player's wardrobe GUI</yellow>"
+  admin-setslots: "<gray>{root} admin setslots <player> <amount></gray> <dark_gray>-</dark_gray> <yellow>Set bonus slots for a player</yellow>"
+  admin-clearslots: "<gray>{root} admin clearslots <player></gray> <dark_gray>-</dark_gray> <yellow>Reset a player's bonus slots to 0</yellow>"
+  footer: "<gray>Use <yellow>{root} help</yellow> to show this list again.</gray>"
+
+# Usage hints returned when command arguments are invalid.
+usage:
+  help: "<gray>Usage: /wardrobe help</gray>"
+  list: "<gray>Usage: /wardrobe list [player]</gray>"
+  migrate: "<gray>Usage: /wardrobe migrate <sqlite|mysql> [--dry-run]</gray>"
+  admin: "<gray>Usage: /wardrobe admin <open|setslots|clearslots></gray>"
+  admin-open: "<gray>Usage: /wardrobe admin open <player></gray>"
+  admin-setslots: "<gray>Usage: /wardrobe admin setslots <player> <amount></gray>"
+  admin-clearslots: "<gray>Usage: /wardrobe admin clearslots <player></gray>"
+
+# Output for /wardrobe list.
+list:
+  header: "<gold>Wardrobe for <yellow>{player}</yellow>:</gold>"
+  empty: "<gray>No saved sets.</gray>"
+  entry: "<gray>* Slot <yellow>{slot}</yellow>: <gold>{name}</gold></gray>"

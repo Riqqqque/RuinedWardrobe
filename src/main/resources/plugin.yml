@@ -1,0 +1,57 @@
+name: PrismWardrobe
+version: ${version}
+main: dev.rique.prismwardrobe.PrismWardrobePlugin
+api-version: '1.21'
+author: Rique
+description: Hypixel-style scalable wardrobe plugin for Paper/Folia.
+folia-supported: true
+softdepend:
+  - PlaceholderAPI
+  - Vault
+  - CombatLogX
+
+commands:
+  wardrobe:
+    description: Main PrismWardrobe command.
+    aliases: [pw]
+    usage: /wardrobe
+    permission: prismwardrobe.use
+
+permissions:
+  prismwardrobe.use:
+    default: true
+  prismwardrobe.command.help:
+    default: true
+  prismwardrobe.command.list:
+    default: true
+  prismwardrobe.command.reload:
+    default: op
+  prismwardrobe.command.migrate:
+    default: op
+  prismwardrobe.admin:
+    default: op
+  prismwardrobe.admin.*:
+    default: op
+    children:
+      prismwardrobe.admin: true
+      prismwardrobe.command.reload: true
+      prismwardrobe.command.migrate: true
+  prismwardrobe.command.*:
+    default: op
+    children:
+      prismwardrobe.command.help: true
+      prismwardrobe.command.list: true
+      prismwardrobe.command.reload: true
+      prismwardrobe.command.migrate: true
+  prismwardrobe.bypass.cooldown:
+    default: op
+  prismwardrobe.bypass.restrictions:
+    default: op
+  prismwardrobe.bypass.emptycheck:
+    default: op
+  prismwardrobe.bypass.combat:
+    default: op
+  prismwardrobe.notify.update:
+    default: op
+  prismwardrobe.api.listen:
+    default: false
