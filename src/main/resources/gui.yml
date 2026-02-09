@@ -1,0 +1,152 @@
+# PrismWardrobe GUI layout/template configuration
+# ------------------------------------------------------------
+# This file controls inventory slot layout and icon templates only.
+# Text shown to players is pulled from lang/*.yml via the name-key/lore-keys.
+# You can reload changes with /wardrobe reload.
+
+titles:
+  # Lang key for main wardrobe inventory title.
+  main: gui.main-title
+
+layout:
+  # Inventory row count for the main wardrobe screen.
+  # Vanilla chest GUIs support 1..6 rows. The default design expects 6.
+  rows: 6
+
+  # Column indexes used as wardrobe slot columns.
+  # Valid range is 0..8 because each row has 9 columns.
+  # Example: [0..8] shows 9 sets per page.
+  slot-display-indices:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+
+  armor-layout:
+    # Row index (0-based) used for each armor piece preview in a column.
+    # Default builds a 4-row vertical stack:
+    # row 0 helmet, row 1 chestplate, row 2 leggings, row 3 boots.
+    helmet-row: 0
+    chestplate-row: 1
+    leggings-row: 2
+    boots-row: 3
+
+  equip-buttons:
+    # Row used for "equip set" buttons for each column.
+    row: 4
+
+    # Absolute slot indexes for each equip button.
+    # Keep count aligned with slot-display-indices for predictable mapping.
+    slots:
+      - 36
+      - 37
+      - 38
+      - 39
+      - 40
+      - 41
+      - 42
+      - 43
+      - 44
+
+  navigation:
+    # Absolute slot index for previous-page button.
+    previous-page-slot: 45
+
+    # Absolute slot index for center button (close/main action).
+    close-slot: 49
+
+    # Absolute slot index for next-page button.
+    next-page-slot: 53
+
+  controls:
+    # Filler slots in the control/navigation row.
+    # These are cosmetic and non-interactive.
+    filler-slots:
+      - 46
+      - 47
+      - 48
+      - 50
+      - 51
+      - 52
+
+  # Legacy/compat preview section.
+  # Current Skyblock-style layout does not use this panel directly,
+  # but keys are kept for compatibility with older configuration structures.
+  preview:
+    helmet-label-slot: -1
+    chest-label-slot: -1
+    leggings-label-slot: -1
+    boots-label-slot: -1
+    helmet-piece-slot: -1
+    chest-piece-slot: -1
+    leggings-piece-slot: -1
+    boots-piece-slot: -1
+    filler-slots: []
+
+templates:
+  # Each template defines item look + lang keys.
+  # material: Bukkit Material enum
+  # model-data: custom model data value (0 disables)
+  # glow: fake enchant glint toggle
+  # name-key: lang key for display name
+  # lore-keys: list of lang keys, one line per key
+
+  empty-slot:
+    material: GREEN_STAINED_GLASS_PANE
+    model-data: 0
+    glow: false
+    name-key: gui.slot-empty-name
+    lore-keys:
+      - gui.slot-empty-lore
+
+  saved-slot:
+    material: PLAYER_HEAD
+    model-data: 0
+    glow: false
+    name-key: gui.slot-saved-name
+    lore-keys:
+      - gui.slot-saved-lore
+
+  locked-slot:
+    material: BLACK_STAINED_GLASS_PANE
+    model-data: 0
+    glow: false
+    name-key: gui.slot-locked-name
+    lore-keys:
+      - gui.slot-locked-lore
+
+  cooldown-slot:
+    material: CLOCK
+    model-data: 0
+    glow: false
+    name-key: gui.slot-cooldown-name
+    lore-keys:
+      - gui.slot-cooldown-lore
+
+  equip-button-unequipped:
+    material: GRAY_DYE
+    model-data: 0
+    glow: false
+    name-key: gui.equip-button-name
+    lore-keys:
+      - gui.equip-button-lore
+
+  equip-button-equipped:
+    material: BLACK_DYE
+    model-data: 0
+    glow: true
+    name-key: gui.equip-button-equipped-name
+    lore-keys:
+      - gui.equip-button-equipped-lore
+
+  control-filler:
+    material: BLACK_STAINED_GLASS_PANE
+    model-data: 0
+    glow: false
+    name-key: gui.control-filler-name
+    lore-keys: []
