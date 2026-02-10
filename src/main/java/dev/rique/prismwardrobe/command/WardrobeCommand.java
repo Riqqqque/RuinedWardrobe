@@ -1,15 +1,20 @@
 package dev.rique.prismwardrobe.command;
 
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import dev.rique.prismwardrobe.api.event.WardrobeDataReloadedEvent;
 import dev.rique.prismwardrobe.api.event.WardrobeSlotsChangedEvent;
 import dev.rique.prismwardrobe.api.model.WardrobeProfile;
+import dev.rique.prismwardrobe.cache.WardrobeCache;
 import dev.rique.prismwardrobe.config.DatabaseType;
+import dev.rique.prismwardrobe.config.PluginConfig;
 import dev.rique.prismwardrobe.core.SlotLimitServiceImpl;
+import dev.rique.prismwardrobe.core.VersionSyncService;
 import dev.rique.prismwardrobe.core.WardrobeServiceImpl;
 import dev.rique.prismwardrobe.gui.WardrobeGuiController;
 import dev.rique.prismwardrobe.lang.LanguageRegistry;
 import dev.rique.prismwardrobe.lang.MessageService;
 import dev.rique.prismwardrobe.scheduler.SchedulerAdapter;
+import dev.rique.prismwardrobe.storage.DatabaseManager;
 import dev.rique.prismwardrobe.storage.MigrationService;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -39,6 +44,10 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
     private final SlotLimitServiceImpl slotLimitService;
     private final WardrobeGuiController guiController;
     private final MigrationService migrationService;
+    private final DatabaseManager databaseManager;
+    private final WardrobeCache wardrobeCache;
+    private final VersionSyncService versionSyncService;
+    private final PluginConfig pluginConfig;
     private final SchedulerAdapter schedulerAdapter;
     private final Runnable reloadAction;
 
@@ -50,6 +59,10 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             SlotLimitServiceImpl slotLimitService,
             WardrobeGuiController guiController,
             MigrationService migrationService,
+            DatabaseManager databaseManager,
+            WardrobeCache wardrobeCache,
+            VersionSyncService versionSyncService,
+            PluginConfig pluginConfig,
             SchedulerAdapter schedulerAdapter,
             Runnable reloadAction) {
         this.plugin = plugin;
@@ -59,6 +72,10 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         this.slotLimitService = slotLimitService;
         this.guiController = guiController;
         this.migrationService = migrationService;
+        this.databaseManager = databaseManager;
+        this.wardrobeCache = wardrobeCache;
+        this.versionSyncService = versionSyncService;
+        this.pluginConfig = pluginConfig;
         this.schedulerAdapter = schedulerAdapter;
         this.reloadAction = reloadAction;
     }
@@ -82,6 +99,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "help" -> handleHelp(sender, label);
             case "list" -> handleList(sender, args);
+            case "doctor" -> handleDoctor(sender);
             case "reload" -> handleReload(sender);
             case "migrate" -> handleMigrate(sender, args);
             case "admin" -> handleAdmin(sender, args);
@@ -103,6 +121,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         messageService.send(sender, "help.open", placeholders);
         if (sender.hasPermission("prismwardrobe.command.list")) {
             messageService.send(sender, "help.list", placeholders);
+        }
+        if (sender.hasPermission("prismwardrobe.command.doctor")) {
+            messageService.send(sender, "help.doctor", placeholders);
         }
         if (sender.hasPermission("prismwardrobe.command.reload")) {
             messageService.send(sender, "help.reload", placeholders);
@@ -159,6 +180,47 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         if (!languageRegistry.getFallbackCountByKey().isEmpty()) {
             plugin.getLogger().info("Lang fallback keys in use: " + languageRegistry.getFallbackCountByKey().size());
         }
+    }
+
+    private void handleDoctor(CommandSender sender) {
+        if (!sender.hasPermission("prismwardrobe.command.doctor")) {
+            messageService.send(sender, "error.no-permission");
+            return;
+        }
+
+        CacheStats stats = wardrobeCache.stats();
+        messageService.send(sender, "doctor.header");
+        messageService.send(sender, "doctor.storage", Map.of(
+                "storage", pluginConfig.storageSettings().type().name(),
+                "ready", databaseManager.isReady() ? "yes" : "no",
+                "active", String.valueOf(databaseManager.poolActiveConnections())));
+        messageService.send(sender, "doctor.players", Map.of(
+                "online", String.valueOf(Bukkit.getOnlinePlayers().size())));
+        messageService.send(sender, "doctor.cache", Map.of(
+                "size", String.valueOf(wardrobeCache.size()),
+                "hit_rate", formatDouble(stats.hitRate()),
+                "hits", String.valueOf(stats.hitCount()),
+                "misses", String.valueOf(stats.missCount())));
+        messageService.send(sender, "doctor.queue", Map.of(
+                "depth", String.valueOf(databaseManager.queueDepth()),
+                "latency_ms", formatDouble(databaseManager.averageLatencyMs())));
+        messageService.send(sender, "doctor.sync", Map.of(
+                "poll_ms", String.valueOf(versionSyncService.lastPollMs()),
+                "poll_seconds", String.valueOf(pluginConfig.syncSettings().pollSeconds()),
+                "batch", String.valueOf(pluginConfig.syncSettings().batchSize())));
+        databaseManager.runQuery(connection -> {
+            try (var statement = connection.prepareStatement("SELECT 1")) {
+                statement.execute();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+            return true;
+        }).thenAccept(ignored -> runGlobal(() -> messageService.send(sender, "doctor.probe-ok")))
+                .exceptionally(ex -> {
+                    runGlobal(() -> messageService.send(sender, "doctor.probe-failed",
+                            Map.of("reason", sanitizeThrowableMessage(ex))));
+                    return null;
+                });
     }
 
     private void handleMigrate(CommandSender sender, String[] args) {
@@ -377,6 +439,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("prismwardrobe.command.list")) {
                 roots.add("list");
             }
+            if (sender.hasPermission("prismwardrobe.command.doctor")) {
+                roots.add("doctor");
+            }
             if (sender.hasPermission("prismwardrobe.command.reload")) {
                 roots.add("reload");
             }
@@ -409,5 +474,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
     private List<String> filterByPrefix(List<String> values, String prefix) {
         String normalized = prefix.toLowerCase(Locale.ROOT);
         return values.stream().filter(value -> value.toLowerCase(Locale.ROOT).startsWith(normalized)).toList();
+    }
+
+    private String formatDouble(double value) {
+        return String.format(Locale.ROOT, "%.2f", value);
     }
 }

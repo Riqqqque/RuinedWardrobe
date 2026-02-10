@@ -43,6 +43,7 @@ import java.util.Map;
 public final class PrismWardrobePlugin extends JavaPlugin {
 
     private ConfigManager configManager;
+    private PluginConfig pluginConfig;
     private LanguageRegistry languageRegistry;
     private MessageService messageService;
     private SchedulerAdapter schedulerAdapter;
@@ -81,7 +82,7 @@ public final class PrismWardrobePlugin extends JavaPlugin {
     private void bootstrap() {
         configManager = new ConfigManager(this);
         configManager.load();
-        PluginConfig pluginConfig = configManager.pluginConfig();
+        pluginConfig = configManager.pluginConfig();
 
         validateConfiguration(pluginConfig);
 
@@ -189,6 +190,10 @@ public final class PrismWardrobePlugin extends JavaPlugin {
                 slotLimitService,
                 guiController,
                 migrationService,
+                databaseManager,
+                cache,
+                versionSyncService,
+                pluginConfig,
                 schedulerAdapter,
                 this::reloadPluginRuntime
         );

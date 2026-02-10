@@ -4,6 +4,11 @@
 # This file controls behavior, storage, integrations, anti-dupe, and performance.
 # All text is configured in lang/*.yml.
 
+# Config schema version used by PrismWardrobe for compatibility checks.
+# If this value does not match the plugin's expected version, the plugin will disable itself
+# and ask you to regenerate this file from the latest release bundle.
+config-version: 1
+
 language:
   # Global language file name loaded from /plugins/PrismWardrobe/lang/<active>.yml
   # Fallback keys are always pulled from lang/en_US.yml when missing.

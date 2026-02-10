@@ -400,7 +400,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_SLOT_LOCKED, "error.slot-locked", Map.of("slot", String.valueOf(slot), "max", String.valueOf(maxSlots))));
         }
         boolean boundSlotEquipped = hasAnyBoundArmorForSlot(player, playerId, slot);
-        if (boundSlotEquipped && !autoUnequipIfEquipped) {
+        if (WardrobeSafetyDecisions.shouldBlockPieceMutation(boundSlotEquipped, autoUnequipIfEquipped)) {
             return CompletableFuture.completedFuture(new WardrobeResult(
                     ResultCode.DENIED_EVENT_CANCELLED,
                     "error.cannot-edit-equipped-piece",
@@ -409,7 +409,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
         return getProfile(playerId).thenCompose(profile -> {
             CompletableFuture<Boolean> unequipFuture;
-            if (boundSlotEquipped && autoUnequipIfEquipped) {
+            if (WardrobeSafetyDecisions.shouldAutoUnequipBeforeMutation(boundSlotEquipped, autoUnequipIfEquipped)) {
                 unequipFuture = onPlayer(player, () -> {
                     clearBoundArmorForSlot(player.getInventory(), playerId, slot);
                     if (bindingService.getActiveSlot(playerId) == slot) {
@@ -451,7 +451,9 @@ public final class WardrobeServiceImpl implements WardrobeService {
                     : repository.deleteSet(playerId, slot);
 
             return writeFuture
-                    .thenCompose(ignored -> autoUnequipped ? repository.setSelectedSlot(playerId, -1) : CompletableFuture.completedFuture(null))
+                    .thenCompose(ignored -> WardrobeSafetyDecisions.shouldClearSelectedSlotAfterAutoUnequip(autoUnequipped)
+                            ? repository.setSelectedSlot(playerId, -1)
+                            : CompletableFuture.completedFuture(null))
                     .thenCompose(ignored -> repository.loadProfile(playerId))
                     .thenApply(refreshed -> {
                         cache.put(refreshed);
