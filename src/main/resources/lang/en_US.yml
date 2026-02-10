@@ -20,6 +20,9 @@
 # - {target}, {players}, {sets}: migration results
 # - {root}: active command alias used (for help output)
 # - {value}, {reason}, {message}: validation/storage details
+# - {storage}, {ready}, {active}: doctor storage diagnostics
+# - {online}, {size}, {hit_rate}, {hits}, {misses}: doctor cache diagnostics
+# - {depth}, {latency_ms}, {poll_ms}, {poll_seconds}, {batch}: doctor runtime diagnostics
 #
 # Tip: Use <newline> in lore values when you need manual line breaks.
 
@@ -124,6 +127,7 @@ help:
   header: "<gold>PrismWardrobe Commands:</gold>"
   open: "<gray>{root}</gray> <dark_gray>-</dark_gray> <yellow>Open your wardrobe GUI (player only)</yellow>"
   list: "<gray>{root} list [player]</gray> <dark_gray>-</dark_gray> <yellow>List stored wardrobe sets</yellow>"
+  doctor: "<gray>{root} doctor</gray> <dark_gray>-</dark_gray> <yellow>Show runtime diagnostics (storage/cache/sync)</yellow>"
   reload: "<gray>{root} reload</gray> <dark_gray>-</dark_gray> <yellow>Reload config, gui, and language files</yellow>"
   migrate: "<gray>{root} migrate <sqlite|mysql> [--dry-run]</gray> <dark_gray>-</dark_gray> <yellow>Migrate storage data</yellow>"
   admin-open: "<gray>{root} admin open <player></gray> <dark_gray>-</dark_gray> <yellow>Open another player's wardrobe GUI</yellow>"
@@ -131,10 +135,22 @@ help:
   admin-clearslots: "<gray>{root} admin clearslots <player></gray> <dark_gray>-</dark_gray> <yellow>Reset a player's bonus slots to 0</yellow>"
   footer: "<gray>Use <yellow>{root} help</yellow> to show this list again.</gray>"
 
+# Runtime diagnostics output for /wardrobe doctor.
+doctor:
+  header: "<gold>PrismWardrobe Doctor</gold>"
+  storage: "<gray>Storage:</gray> <yellow>{storage}</yellow> <dark_gray>|</dark_gray> <gray>Ready:</gray> <yellow>{ready}</yellow> <dark_gray>|</dark_gray> <gray>Active Conns:</gray> <yellow>{active}</yellow>"
+  players: "<gray>Online Players:</gray> <yellow>{online}</yellow>"
+  cache: "<gray>Cache:</gray> <yellow>size={size}</yellow> <dark_gray>|</dark_gray> <yellow>hitRate={hit_rate}</yellow> <dark_gray>|</dark_gray> <yellow>hits={hits}</yellow> <dark_gray>|</dark_gray> <yellow>misses={misses}</yellow>"
+  queue: "<gray>DB Queue:</gray> <yellow>{depth}</yellow> <dark_gray>|</dark_gray> <gray>Avg DB Latency:</gray> <yellow>{latency_ms} ms</yellow>"
+  sync: "<gray>Sync:</gray> <yellow>lastPoll={poll_ms}ms</yellow> <dark_gray>|</dark_gray> <yellow>interval={poll_seconds}s</yellow> <dark_gray>|</dark_gray> <yellow>batch={batch}</yellow>"
+  probe-ok: "<green>DB probe succeeded.</green>"
+  probe-failed: "<red>DB probe failed:</red> <yellow>{reason}</yellow>"
+
 # Usage hints returned when command arguments are invalid.
 usage:
   help: "<gray>Usage: /wardrobe help</gray>"
   list: "<gray>Usage: /wardrobe list [player]</gray>"
+  doctor: "<gray>Usage: /wardrobe doctor</gray>"
   migrate: "<gray>Usage: /wardrobe migrate <sqlite|mysql> [--dry-run]</gray>"
   admin: "<gray>Usage: /wardrobe admin <open|setslots|clearslots></gray>"
   admin-open: "<gray>Usage: /wardrobe admin open <player></gray>"

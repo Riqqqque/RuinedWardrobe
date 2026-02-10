@@ -4,6 +4,11 @@
 # Text shown to players is pulled from lang/*.yml via the name-key/lore-keys.
 # You can reload changes with /wardrobe reload.
 
+# Config schema version used by PrismWardrobe for compatibility checks.
+# If this value does not match the plugin's expected version, the plugin will disable itself
+# and ask you to regenerate this file from the latest release bundle.
+config-version: 1
+
 titles:
   # Lang key for main wardrobe inventory title.
   main: gui.main-title

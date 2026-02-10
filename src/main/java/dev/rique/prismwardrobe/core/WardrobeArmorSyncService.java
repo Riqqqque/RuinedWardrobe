@@ -134,7 +134,8 @@ public final class WardrobeArmorSyncService {
                 : repository.saveSet(profile.playerId(), updated);
 
         return writeFuture
-                .thenCompose(ignored -> noArmorRemaining && profile.selectedSlot() == activeSlot
+                .thenCompose(ignored -> WardrobeSafetyDecisions.shouldClearSelectedSlotAfterSync(
+                        noArmorRemaining, profile.selectedSlot(), activeSlot)
                         ? repository.setSelectedSlot(profile.playerId(), -1)
                         : CompletableFuture.completedFuture(null))
                 .thenCompose(ignored -> repository.loadProfile(profile.playerId()))

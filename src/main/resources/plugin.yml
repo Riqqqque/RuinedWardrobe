@@ -24,6 +24,8 @@ permissions:
     default: true
   prismwardrobe.command.list:
     default: true
+  prismwardrobe.command.doctor:
+    default: op
   prismwardrobe.command.reload:
     default: op
   prismwardrobe.command.migrate:
@@ -34,6 +36,7 @@ permissions:
     default: op
     children:
       prismwardrobe.admin: true
+      prismwardrobe.command.doctor: true
       prismwardrobe.command.reload: true
       prismwardrobe.command.migrate: true
   prismwardrobe.command.*:
@@ -41,6 +44,7 @@ permissions:
     children:
       prismwardrobe.command.help: true
       prismwardrobe.command.list: true
+      prismwardrobe.command.doctor: true
       prismwardrobe.command.reload: true
       prismwardrobe.command.migrate: true
   prismwardrobe.bypass.cooldown:

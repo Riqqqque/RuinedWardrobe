@@ -90,7 +90,7 @@ public final class VersionSyncService {
                         continue;
                     }
                     long localVersion = wardrobeService.cachedProfile(playerId).map(WardrobeProfile::version).orElse(-1L);
-                    if (remoteVersion > localVersion) {
+                    if (WardrobeSafetyDecisions.shouldRefreshFromRemote(remoteVersion, localVersion)) {
                         refreshTasks.add(repository.loadProfile(playerId));
                     }
                 }
