@@ -34,7 +34,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("org.mockito:mockito-core:5.15.2")
+    testImplementation("org.mockito:mockito-core:5.21.0")
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 }
 
