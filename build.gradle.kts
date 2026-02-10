@@ -32,7 +32,7 @@ dependencies {
     implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1")
     implementation("org.bstats:bstats-bukkit:3.1.0")
 
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation(platform("org.junit:junit-bom:6.0.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core:5.15.2")
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
