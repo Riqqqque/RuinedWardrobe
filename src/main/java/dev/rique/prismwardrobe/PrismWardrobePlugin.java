@@ -39,6 +39,7 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public final class PrismWardrobePlugin extends JavaPlugin {
 
@@ -245,11 +246,18 @@ public final class PrismWardrobePlugin extends JavaPlugin {
 
     private void shutdown() {
         shutdownRuntimeOnly();
-        if (schedulerAdapter != null) {
-            schedulerAdapter.shutdown();
+        if (armorSyncService != null) {
+            try {
+                armorSyncService.flushOnlinePlayers().orTimeout(10L, TimeUnit.SECONDS).join();
+            } catch (Exception ex) {
+                getLogger().warning("Failed to flush wardrobe state during shutdown: " + ex.getMessage());
+            }
         }
         if (databaseManager != null) {
             databaseManager.shutdown();
+        }
+        if (schedulerAdapter != null) {
+            schedulerAdapter.shutdown();
         }
     }
 }

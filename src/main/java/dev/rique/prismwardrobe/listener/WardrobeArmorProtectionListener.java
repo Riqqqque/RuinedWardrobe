@@ -179,10 +179,9 @@ public final class WardrobeArmorProtectionListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
-        event.getDrops().removeIf(bindingService::isBound);
-        bindingService.clearActiveSlot(event.getEntity().getUniqueId());
+        armorSyncService.handleDeath(event.getEntity(), event.getKeepInventory(), event.getDrops());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

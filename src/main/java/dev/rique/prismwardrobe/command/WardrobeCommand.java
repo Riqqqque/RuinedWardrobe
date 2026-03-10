@@ -147,8 +147,8 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         UUID targetId;
         String targetName;
         if (args.length >= 2) {
-            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-            if (target.getUniqueId() == null) {
+            OfflinePlayer target = resolveKnownPlayer(args[1]);
+            if (target == null) {
                 messageService.send(sender, "error.player-not-found", Map.of("player", args[1]));
                 return;
             }
@@ -285,7 +285,11 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                     messageService.send(sender, "usage.admin-setslots");
                     return;
                 }
-                OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
+                OfflinePlayer target = resolveKnownPlayer(args[2]);
+                if (target == null) {
+                    messageService.send(sender, "error.player-not-found", Map.of("player", args[2]));
+                    return;
+                }
                 int amount;
                 try {
                     amount = Integer.parseInt(args[3]);
@@ -320,7 +324,11 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                     messageService.send(sender, "usage.admin-clearslots");
                     return;
                 }
-                OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
+                OfflinePlayer target = resolveKnownPlayer(args[2]);
+                if (target == null) {
+                    messageService.send(sender, "error.player-not-found", Map.of("player", args[2]));
+                    return;
+                }
                 UUID targetId = target.getUniqueId();
                 slotLimitService.getBonusSlots(targetId)
                         .thenCompose(
@@ -427,6 +435,19 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
 
     private void runGlobal(Runnable runnable) {
         schedulerAdapter.runGlobal(runnable);
+    }
+
+    private OfflinePlayer resolveKnownPlayer(String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) {
+            return online;
+        }
+
+        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        if (offline.hasPlayedBefore()) {
+            return offline;
+        }
+        return null;
     }
 
     @Override

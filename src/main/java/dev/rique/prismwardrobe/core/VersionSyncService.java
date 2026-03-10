@@ -83,7 +83,7 @@ public final class VersionSyncService {
             int end = Math.min(onlineIds.size(), i + syncSettings.batchSize());
             List<UUID> chunk = onlineIds.subList(i, end);
             CompletableFuture<Void> future = repository.fetchVersions(chunk).thenCompose(versionMap -> {
-                List<CompletableFuture<WardrobeProfile>> refreshTasks = new ArrayList<>();
+                List<CompletableFuture<Void>> refreshTasks = new ArrayList<>();
                 for (UUID playerId : chunk) {
                     Long remoteVersion = versionMap.get(playerId);
                     if (remoteVersion == null) {
@@ -91,14 +91,18 @@ public final class VersionSyncService {
                     }
                     long localVersion = wardrobeService.cachedProfile(playerId).map(WardrobeProfile::version).orElse(-1L);
                     if (WardrobeSafetyDecisions.shouldRefreshFromRemote(remoteVersion, localVersion)) {
-                        refreshTasks.add(repository.loadProfile(playerId));
+                        refreshTasks.add(repository.loadProfile(playerId)
+                                .thenAccept(wardrobeService::primeProfile)
+                                .exceptionally(ex -> {
+                                    plugin.getLogger().warning("Version sync refresh failed for " + playerId + ": " + ex.getMessage());
+                                    return null;
+                                }));
                     }
                 }
                 if (refreshTasks.isEmpty()) {
                     return CompletableFuture.completedFuture(null);
                 }
-                return CompletableFuture.allOf(refreshTasks.toArray(new CompletableFuture[0]))
-                        .thenAccept(ignored -> refreshTasks.forEach(task -> task.thenAccept(wardrobeService::primeProfile)));
+                return CompletableFuture.allOf(refreshTasks.toArray(new CompletableFuture[0]));
             }).exceptionally(ex -> {
                 plugin.getLogger().warning("Version sync batch failed: " + ex.getMessage());
                 return null;
