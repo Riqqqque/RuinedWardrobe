@@ -271,7 +271,13 @@ public final class WardrobeGuiController {
     }
 
     private void openMainSync(Player viewer, UUID targetId, WardrobeProfile profile, int requestedPage) {
-        int maxSlots = slotLimitService.getMaxSlots(viewer);
+        Player targetPlayer = viewer.getUniqueId().equals(targetId) ? viewer : Bukkit.getPlayer(targetId);
+        if (targetPlayer == null || !targetPlayer.isOnline()) {
+            messageService.send(viewer, "error.player-offline");
+            return;
+        }
+
+        int maxSlots = slotLimitService.getMaxSlots(targetPlayer);
         int slotsPerPage = slotsPerPage();
 
         int actualMaxPages = Math.max(1, pluginConfig.maxPages());
@@ -297,6 +303,7 @@ public final class WardrobeGuiController {
         }
 
         long cooldownMillis = wardrobeService.getRemainingCooldownMillis(targetId);
+        boolean bypassCooldown = targetPlayer.hasPermission("prismwardrobe.bypass.cooldown");
 
         // Render armor columns and equip buttons
         List<Integer> displayIndices = guiConfig.slotDisplayIndices();
@@ -335,7 +342,7 @@ public final class WardrobeGuiController {
                 renderEmptyColumn(inventory, viewer, column, wardrobeSlot);
                 setIfConfigured(inventory, equipButtonSlot,
                         buildTemplate(viewer, guiConfig.equipButtonUnequippedTemplate(), placeholders));
-            } else if (cooldownMillis > 0 && !viewer.hasPermission("prismwardrobe.bypass.cooldown")) {
+            } else if (cooldownMillis > 0 && !bypassCooldown) {
                 renderCooldownColumn(inventory, viewer, column, wardrobeSet, cooldownMillis);
                 setIfConfigured(inventory, equipButtonSlot, buildTemplate(viewer, guiConfig.cooldownSlotTemplate(),
                         Map.of("slot", String.valueOf(wardrobeSlot), "seconds",

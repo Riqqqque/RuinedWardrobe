@@ -87,7 +87,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<WardrobeProfile> loadProfile(UUID playerId) {
         return databaseManager.runQuery(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                ensurePlayerRowExists(connection, playerId);
                 PlayerState playerState = readPlayerState(connection, playerId);
                 Map<Integer, WardrobeSet> sets = readSets(connection, playerId);
                 int selectedSlot = playerState.selectedSlot;
@@ -108,7 +108,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Void> saveSet(UUID playerId, WardrobeSet wardrobeSet) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
                 long now = System.currentTimeMillis();
                 String updateSql = """
                         UPDATE pw_sets
@@ -156,7 +156,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Void> deleteSet(UUID playerId, int slot) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
                 try (PreparedStatement statement = connection.prepareStatement("DELETE FROM pw_sets WHERE player_uuid=? AND slot_index=?")) {
                     statement.setString(1, playerId.toString());
                     statement.setInt(2, slot);
@@ -174,7 +174,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Void> renameSet(UUID playerId, int slot, String name) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
                 try (PreparedStatement statement = connection.prepareStatement("UPDATE pw_sets SET slot_name=?, updated_at=?, version=version+1 WHERE player_uuid=? AND slot_index=?")) {
                     statement.setString(1, name);
                     statement.setLong(2, System.currentTimeMillis());
@@ -194,7 +194,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Integer> getBonusSlots(UUID playerId) {
         return databaseManager.runQuery(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                ensurePlayerRowExists(connection, playerId);
                 try (PreparedStatement statement = connection.prepareStatement("SELECT bonus_slots FROM pw_players WHERE player_uuid=?")) {
                     statement.setString(1, playerId.toString());
                     try (ResultSet rs = statement.executeQuery()) {
@@ -211,7 +211,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Integer> setBonusSlots(UUID playerId, int bonusSlots) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
                 int oldValue = 0;
                 try (PreparedStatement select = connection.prepareStatement("SELECT bonus_slots FROM pw_players WHERE player_uuid=?")) {
                     select.setString(1, playerId.toString());
@@ -238,7 +238,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Void> setSelectedSlot(UUID playerId, int selectedSlot) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
                 try (PreparedStatement statement = connection.prepareStatement("UPDATE pw_players SET selected_slot=?, version=version+1, updated_at=? WHERE player_uuid=?")) {
                     statement.setInt(1, selectedSlot);
                     statement.setLong(2, System.currentTimeMillis());
@@ -295,7 +295,7 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
     public CompletableFuture<Void> touchPlayer(UUID playerId) {
         return databaseManager.runWrite(connection -> {
             try {
-                ensurePlayerRow(connection, playerId);
+                touchPlayerRow(connection, playerId);
             } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
@@ -475,7 +475,24 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
         return sets;
     }
 
-    private void ensurePlayerRow(Connection connection, UUID playerId) throws SQLException {
+    private void ensurePlayerRowExists(Connection connection, UUID playerId) throws SQLException {
+        String insertSql = """
+                INSERT INTO pw_players (player_uuid, bonus_slots, selected_slot, version, updated_at)
+                VALUES (?, 0, -1, 0, ?)
+                """;
+        try (PreparedStatement insert = connection.prepareStatement(insertSql)) {
+            insert.setString(1, playerId.toString());
+            insert.setLong(2, System.currentTimeMillis());
+            insert.executeUpdate();
+        } catch (SQLException ex) {
+            // Another thread may have inserted already.
+            if (!isDuplicateKey(ex)) {
+                throw ex;
+            }
+        }
+    }
+
+    private void touchPlayerRow(Connection connection, UUID playerId) throws SQLException {
         long now = System.currentTimeMillis();
         String updateSql = "UPDATE pw_players SET updated_at=? WHERE player_uuid=?";
         try (PreparedStatement update = connection.prepareStatement(updateSql)) {
@@ -496,7 +513,6 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
             insert.setLong(2, now);
             insert.executeUpdate();
         } catch (SQLException ex) {
-            // Another thread may have inserted already.
             if (!isDuplicateKey(ex)) {
                 throw ex;
             }

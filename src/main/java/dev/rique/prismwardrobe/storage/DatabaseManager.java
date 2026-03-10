@@ -10,11 +10,12 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -25,12 +26,14 @@ public final class DatabaseManager {
     private ThreadPoolExecutor executor;
     private final AtomicLong totalLatencyNs = new AtomicLong();
     private final AtomicLong latencySamples = new AtomicLong();
+    private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
     public DatabaseManager(PluginConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
     }
 
     public void initialize(File dataFolder) {
+        shuttingDown.set(false);
         PluginConfig.StorageSettings storage = pluginConfig.storageSettings();
         HikariConfig hikariConfig = new HikariConfig();
 
@@ -82,8 +85,18 @@ public final class DatabaseManager {
     }
 
     public void shutdown() {
+        shuttingDown.set(true);
         if (executor != null) {
-            executor.shutdownNow();
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(30L, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                    executor.awaitTermination(5L, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException ex) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
         if (dataSource != null) {
             dataSource.close();
@@ -109,24 +122,36 @@ public final class DatabaseManager {
     }
 
     private <T> CompletableFuture<T> submit(Function<Connection, T> function, int retries) {
-        return CompletableFuture.supplyAsync(() -> {
-            int attempt = 0;
-            while (true) {
-                long startNs = System.nanoTime();
-                try (Connection connection = dataSource.getConnection()) {
-                    T result = function.apply(connection);
-                    recordLatency(startNs);
-                    return result;
-                } catch (Exception ex) {
-                    recordLatency(startNs);
-                    if (attempt >= retries) {
-                        throw new DatabaseException("Database operation failed after retries", ex);
+        ThreadPoolExecutor currentExecutor = executor;
+        HikariDataSource currentDataSource = dataSource;
+        if (currentExecutor == null || currentDataSource == null || shuttingDown.get()) {
+            return CompletableFuture.failedFuture(new DatabaseException("Database manager is not accepting new work"));
+        }
+
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                int attempt = 0;
+                while (true) {
+                    long startNs = System.nanoTime();
+                    try (Connection connection = currentDataSource.getConnection()) {
+                        T result = function.apply(connection);
+                        recordLatency(startNs);
+                        return result;
+                    } catch (Exception ex) {
+                        recordLatency(startNs);
+                        if (attempt >= retries) {
+                            throw new DatabaseException("Database operation failed after retries", ex);
+                        }
+                        attempt++;
+                        if (!sleep(pluginConfig.dbExecutionSettings().retryDelayMs())) {
+                            throw new DatabaseException("Database operation interrupted during retry", ex);
+                        }
                     }
-                    attempt++;
-                    sleep(pluginConfig.dbExecutionSettings().retryDelayMs());
                 }
-            }
-        }, executor);
+            }, currentExecutor);
+        } catch (RejectedExecutionException ex) {
+            return CompletableFuture.failedFuture(new DatabaseException("Database executor queue is full", ex));
+        }
     }
 
     private void recordLatency(long startNs) {
@@ -134,11 +159,13 @@ public final class DatabaseManager {
         latencySamples.incrementAndGet();
     }
 
-    private void sleep(long millis) {
+    private boolean sleep(long millis) {
         try {
             Thread.sleep(millis);
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            return false;
         }
     }
 
@@ -173,6 +200,10 @@ public final class DatabaseManager {
     }
 
     public static final class DatabaseException extends RuntimeException {
+        public DatabaseException(String message) {
+            super(message);
+        }
+
         public DatabaseException(String message, Throwable cause) {
             super(message, cause);
         }
