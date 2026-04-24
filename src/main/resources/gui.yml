@@ -1,13 +1,13 @@
-# PrismWardrobe GUI layout/template configuration
+# FluxWardrobe GUI layout/template configuration
 # ------------------------------------------------------------
 # This file controls inventory slot layout and icon templates only.
 # Text shown to players is pulled from lang/*.yml via the name-key/lore-keys.
 # You can reload changes with /wardrobe reload.
 
-# Config schema version used by PrismWardrobe for compatibility checks.
-# If this value does not match the plugin's expected version, the plugin will disable itself
-# and ask you to regenerate this file from the latest release bundle.
-config-version: 1
+# Config schema version used by FluxWardrobe for compatibility checks.
+# If this value does not match the plugin's expected version, the plugin backs up this file
+# and writes the newest bundled template automatically.
+config-version: 2
 
 titles:
   # Lang key for main wardrobe inventory title.

@@ -1,8 +1,9 @@
 # Config Reference
 
 ## Version Guards
-- `config.yml` and `gui.yml` both require `config-version: 1`.
-- If version mismatches, PrismWardrobe disables itself with a clear startup error.
+- `config.yml` and `gui.yml` both require `config-version: 2`.
+- If version mismatches, FluxWardrobe backs up the old file and regenerates the latest template automatically.
+- Runtime target is Paper/Folia `26.1.1` on Java `25`.
 
 ## `config.yml` Highlights
 - `language.active`: global active language file in `lang/`.
@@ -10,6 +11,7 @@
 - `wardrobe.default-slots`: base unlocked slots (default `8`).
 - `wardrobe.max-pages`: max GUI pages (default `2`).
 - `storage.type`: `SQLITE` or `MYSQL`.
+- `storage.sqlite.file`: relative path to the SQLite database file.
 - `performance.database.*`: async write queue/retries/workers.
 - `restrictions.*`: world/gamemode/combat/placeholder checks.
 - `anti-dupe.strict-container-lock`: blocks container interaction while wearing bound armor.

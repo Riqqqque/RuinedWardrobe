@@ -1,0 +1,37 @@
+package dev.rique.fluxwardrobe.api.event;
+
+import dev.rique.fluxwardrobe.api.model.WardrobeSet;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public final class WardrobeSavedEvent extends Event {
+
+    private static final HandlerList HANDLERS = new HandlerList();
+
+    private final Player player;
+    private final WardrobeSet wardrobeSet;
+
+    public WardrobeSavedEvent(Player player, WardrobeSet wardrobeSet) {
+        this.player = player;
+        this.wardrobeSet = wardrobeSet;
+    }
+
+    public Player getPlayer() {
+        return player;
+    }
+
+    public WardrobeSet getWardrobeSet() {
+        return wardrobeSet;
+    }
+
+    @Override
+    public HandlerList getHandlers() {
+        return HANDLERS;
+    }
+
+    public static HandlerList getHandlerList() {
+        return HANDLERS;
+    }
+}
+
