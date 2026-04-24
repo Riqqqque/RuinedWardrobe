@@ -1,16 +1,20 @@
-# PrismWardrobe main configuration
+# FluxWardrobe main configuration
 # ------------------------------------------------------------
 # Reload supported with: /wardrobe reload
 # This file controls behavior, storage, integrations, anti-dupe, and performance.
+# Built for Paper/Folia 26.1.1 on Java 25.
+# On config version changes, FluxWardrobe backs up the old file and writes the new template automatically.
+# Storage migrations also write a full snapshot backup before data is copied.
+# Older local schema layouts are imported automatically on startup with a verified backup.
 # All text is configured in lang/*.yml.
 
-# Config schema version used by PrismWardrobe for compatibility checks.
-# If this value does not match the plugin's expected version, the plugin will disable itself
-# and ask you to regenerate this file from the latest release bundle.
-config-version: 1
+# Config schema version used by FluxWardrobe for compatibility checks.
+# If this value does not match the plugin's expected version, the plugin will back up this file,
+# replace it with the latest bundled template, and continue loading with the new version.
+config-version: 2
 
 language:
-  # Global language file name loaded from /plugins/PrismWardrobe/lang/<active>.yml
+  # Global language file name loaded from /plugins/FluxWardrobe/lang/<active>.yml
   # Fallback keys are always pulled from lang/en_US.yml when missing.
   # Example values: en_US, es_ES, fr_FR
   active: en_US
@@ -25,7 +29,7 @@ messages:
 wardrobe:
   # Base number of unlocked slots for players with no rank slot permissions.
   # Final slot amount is computed from:
-  # max( default-slots, highest prismwardrobe.slots.<n> permission ) + admin bonus slots
+  # max( default-slots, highest fluxwardrobe.slots.<n> permission ) + admin bonus slots
   default-slots: 8
 
   # Hard upper limit to protect UI, database size, and misuse.
@@ -38,26 +42,29 @@ wardrobe:
   max-pages: 2
 
   # Cooldown after successful equip.
-  # Players with prismwardrobe.bypass.cooldown ignore this.
+  # Players with fluxwardrobe.bypass.cooldown ignore this.
   equip-cooldown-seconds: 3
 
 storage:
   # Storage backend:
   # SQLITE = local single-file storage, easiest setup
   # MYSQL = shared DB for multi-server/network deployments
+  # The explicit `/wardrobe migrate` command verifies copied row digests and writes a snapshot backup first.
   type: SQLITE # SQLITE | MYSQL
 
   sqlite:
     # Relative path from plugin data folder.
     # Example absolute output path:
-    # /plugins/PrismWardrobe/data/wardrobe.db
+    # /plugins/FluxWardrobe/data/wardrobe.db
+    # Keep this file on fast local storage and back it up before major server updates.
     file: data/wardrobe.db
 
   mysql:
     # MySQL/MariaDB connection details.
+    # Recommended when multiple servers need to share the same wardrobe data.
     host: 127.0.0.1
     port: 3306
-    database: prismwardrobe
+    database: fluxwardrobe
     username: root
     password: change_me
 
@@ -94,7 +101,7 @@ performance:
     # write-queue-capacity: max queued writes before rejection.
     # write-retries: retries after DB operation failure.
     # retry-delay-ms: delay between retry attempts.
-    # worker-threads: async DB workers (increase for heavy load).
+    # worker-threads: async DB workers (increase for heavy load, but keep it modest to avoid DB thrash).
     write-queue-capacity: 2048
     write-retries: 3
     retry-delay-ms: 150
@@ -174,5 +181,5 @@ metrics:
   plugin-id: 0
 
 debug:
-  # Enables additional debug logging (correlation IDs and action traces).
+  # Enables additional debug logging for diagnostics and migration troubleshooting.
   enabled: false

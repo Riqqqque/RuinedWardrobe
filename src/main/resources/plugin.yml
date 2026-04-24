@@ -1,9 +1,9 @@
-name: PrismWardrobe
+name: FluxWardrobe
 version: ${version}
-main: dev.rique.prismwardrobe.PrismWardrobePlugin
-api-version: '1.21'
+main: dev.rique.fluxwardrobe.FluxWardrobePlugin
+api-version: '26.1.1'
 author: Rique
-description: Hypixel-style scalable wardrobe plugin for Paper/Folia.
+description: High-performance wardrobe plugin for Paper and Folia.
 folia-supported: true
 softdepend:
   - PlaceholderAPI
@@ -12,50 +12,49 @@ softdepend:
 
 commands:
   wardrobe:
-    description: Main PrismWardrobe command.
-    aliases: [pw]
+    description: Main FluxWardrobe command.
+    aliases: [fw]
     usage: /wardrobe
-    permission: prismwardrobe.use
 
 permissions:
-  prismwardrobe.use:
+  fluxwardrobe.use:
     default: true
-  prismwardrobe.command.help:
+  fluxwardrobe.command.help:
     default: true
-  prismwardrobe.command.list:
+  fluxwardrobe.command.list:
     default: true
-  prismwardrobe.command.doctor:
+  fluxwardrobe.command.doctor:
     default: op
-  prismwardrobe.command.reload:
+  fluxwardrobe.command.reload:
     default: op
-  prismwardrobe.command.migrate:
+  fluxwardrobe.command.migrate:
     default: op
-  prismwardrobe.admin:
+  fluxwardrobe.admin:
     default: op
-  prismwardrobe.admin.*:
+  fluxwardrobe.admin.*:
     default: op
     children:
-      prismwardrobe.admin: true
-      prismwardrobe.command.doctor: true
-      prismwardrobe.command.reload: true
-      prismwardrobe.command.migrate: true
-  prismwardrobe.command.*:
+      fluxwardrobe.admin: true
+      fluxwardrobe.command.doctor: true
+      fluxwardrobe.command.reload: true
+      fluxwardrobe.command.migrate: true
+  fluxwardrobe.command.*:
     default: op
     children:
-      prismwardrobe.command.help: true
-      prismwardrobe.command.list: true
-      prismwardrobe.command.doctor: true
-      prismwardrobe.command.reload: true
-      prismwardrobe.command.migrate: true
-  prismwardrobe.bypass.cooldown:
+      fluxwardrobe.command.help: true
+      fluxwardrobe.command.list: true
+      fluxwardrobe.command.doctor: true
+      fluxwardrobe.command.reload: true
+      fluxwardrobe.command.migrate: true
+  fluxwardrobe.bypass.cooldown:
     default: op
-  prismwardrobe.bypass.restrictions:
+  fluxwardrobe.bypass.restrictions:
     default: op
-  prismwardrobe.bypass.emptycheck:
+  fluxwardrobe.bypass.emptycheck:
     default: op
-  prismwardrobe.bypass.combat:
+  fluxwardrobe.bypass.combat:
     default: op
-  prismwardrobe.notify.update:
+  fluxwardrobe.notify.update:
     default: op
-  prismwardrobe.api.listen:
+  fluxwardrobe.api.listen:
     default: false
