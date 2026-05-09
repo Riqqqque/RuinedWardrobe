@@ -49,6 +49,10 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.processResources {
+    from(rootProject.file("LICENSE")) {
+        into("META-INF")
+        rename { "LICENSE.txt" }
+    }
     filesMatching("plugin.yml") {
         expand("version" to project.version)
     }
@@ -56,7 +60,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    relocate("org.bstats", "dev.rique.fluxwardrobe.libs.bstats")
+    relocate("org.bstats", "dev.rique.ruinedwardrobe.libs.bstats")
 }
 
 tasks.build {

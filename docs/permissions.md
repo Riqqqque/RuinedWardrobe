@@ -1,28 +1,28 @@
-# FluxWardrobe Permissions
+# RuinedWardrobe Permissions
 
 ## Base
-- `fluxwardrobe.use`: Access `/wardrobe` and `/fw`.
-- `fluxwardrobe.command.help`: Use `/wardrobe help`.
-- `fluxwardrobe.command.list`: Use `/wardrobe list [player]`.
-- `fluxwardrobe.command.doctor`: Use `/wardrobe doctor`.
-- `fluxwardrobe.command.reload`: Use `/wardrobe reload`.
-- `fluxwardrobe.command.migrate`: Use `/wardrobe migrate ...`.
+- `ruinedwardrobe.use`: Access `/wardrobe` and `/rw`.
+- `ruinedwardrobe.command.help`: Use `/wardrobe help`.
+- `ruinedwardrobe.command.list`: Use `/wardrobe list [player]`.
+- `ruinedwardrobe.command.doctor`: Use `/wardrobe doctor`.
+- `ruinedwardrobe.command.reload`: Use `/wardrobe reload`.
+- `ruinedwardrobe.command.migrate`: Use `/wardrobe migrate ...`.
 
 ## Admin
-- `fluxwardrobe.admin`: Access admin subcommands.
-- `fluxwardrobe.admin.*`: Includes `fluxwardrobe.admin` and command admin nodes.
-- `fluxwardrobe.command.*`: Includes all non-admin command nodes.
+- `ruinedwardrobe.admin`: Access admin subcommands.
+- `ruinedwardrobe.admin.*`: Includes `ruinedwardrobe.admin` and command admin nodes.
+- `ruinedwardrobe.command.*`: Includes all non-admin command nodes.
 
 ## Slot Tiers
-- `fluxwardrobe.slots.<n>`: Sets slot cap tier by highest value node on player.
-- Example: `fluxwardrobe.slots.8`, `fluxwardrobe.slots.16`.
+- `ruinedwardrobe.slots.<n>`: Sets slot cap tier by highest value node on player.
+- Example: `ruinedwardrobe.slots.8`, `ruinedwardrobe.slots.16`.
 
 ## Bypass
-- `fluxwardrobe.bypass.cooldown`
-- `fluxwardrobe.bypass.restrictions`
-- `fluxwardrobe.bypass.emptycheck`
-- `fluxwardrobe.bypass.combat`
+- `ruinedwardrobe.bypass.cooldown`
+- `ruinedwardrobe.bypass.restrictions`
+- `ruinedwardrobe.bypass.emptycheck`
+- `ruinedwardrobe.bypass.combat`
 
 ## Optional
-- `fluxwardrobe.notify.update`
-- `fluxwardrobe.api.listen`
+- `ruinedwardrobe.notify.update`
+- `ruinedwardrobe.api.listen`

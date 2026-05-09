@@ -1,6 +1,6 @@
-name: FluxWardrobe
+name: RuinedWardrobe
 version: ${version}
-main: dev.rique.fluxwardrobe.FluxWardrobePlugin
+main: dev.rique.ruinedwardrobe.RuinedWardrobePlugin
 api-version: '26.1.1'
 author: Rique
 description: High-performance wardrobe plugin for Paper and Folia.
@@ -12,49 +12,49 @@ softdepend:
 
 commands:
   wardrobe:
-    description: Main FluxWardrobe command.
-    aliases: [fw]
+    description: Main RuinedWardrobe command.
+    aliases: [rw]
     usage: /wardrobe
 
 permissions:
-  fluxwardrobe.use:
+  ruinedwardrobe.use:
     default: true
-  fluxwardrobe.command.help:
+  ruinedwardrobe.command.help:
     default: true
-  fluxwardrobe.command.list:
+  ruinedwardrobe.command.list:
     default: true
-  fluxwardrobe.command.doctor:
+  ruinedwardrobe.command.doctor:
     default: op
-  fluxwardrobe.command.reload:
+  ruinedwardrobe.command.reload:
     default: op
-  fluxwardrobe.command.migrate:
+  ruinedwardrobe.command.migrate:
     default: op
-  fluxwardrobe.admin:
+  ruinedwardrobe.admin:
     default: op
-  fluxwardrobe.admin.*:
+  ruinedwardrobe.admin.*:
     default: op
     children:
-      fluxwardrobe.admin: true
-      fluxwardrobe.command.doctor: true
-      fluxwardrobe.command.reload: true
-      fluxwardrobe.command.migrate: true
-  fluxwardrobe.command.*:
+      ruinedwardrobe.admin: true
+      ruinedwardrobe.command.doctor: true
+      ruinedwardrobe.command.reload: true
+      ruinedwardrobe.command.migrate: true
+  ruinedwardrobe.command.*:
     default: op
     children:
-      fluxwardrobe.command.help: true
-      fluxwardrobe.command.list: true
-      fluxwardrobe.command.doctor: true
-      fluxwardrobe.command.reload: true
-      fluxwardrobe.command.migrate: true
-  fluxwardrobe.bypass.cooldown:
+      ruinedwardrobe.command.help: true
+      ruinedwardrobe.command.list: true
+      ruinedwardrobe.command.doctor: true
+      ruinedwardrobe.command.reload: true
+      ruinedwardrobe.command.migrate: true
+  ruinedwardrobe.bypass.cooldown:
     default: op
-  fluxwardrobe.bypass.restrictions:
+  ruinedwardrobe.bypass.restrictions:
     default: op
-  fluxwardrobe.bypass.emptycheck:
+  ruinedwardrobe.bypass.emptycheck:
     default: op
-  fluxwardrobe.bypass.combat:
+  ruinedwardrobe.bypass.combat:
     default: op
-  fluxwardrobe.notify.update:
+  ruinedwardrobe.notify.update:
     default: op
-  fluxwardrobe.api.listen:
+  ruinedwardrobe.api.listen:
     default: false
