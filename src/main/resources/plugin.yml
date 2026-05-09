@@ -1,9 +1,9 @@
-name: PrismWardrobe
+name: RuinedWardrobe
 version: ${version}
-main: dev.rique.prismwardrobe.PrismWardrobePlugin
-api-version: '1.21'
+main: dev.rique.ruinedwardrobe.RuinedWardrobePlugin
+api-version: '26.1.1'
 author: Rique
-description: Hypixel-style scalable wardrobe plugin for Paper/Folia.
+description: High-performance wardrobe plugin for Paper and Folia.
 folia-supported: true
 softdepend:
   - PlaceholderAPI
@@ -12,50 +12,49 @@ softdepend:
 
 commands:
   wardrobe:
-    description: Main PrismWardrobe command.
-    aliases: [pw]
+    description: Main RuinedWardrobe command.
+    aliases: [rw]
     usage: /wardrobe
-    permission: prismwardrobe.use
 
 permissions:
-  prismwardrobe.use:
+  ruinedwardrobe.use:
     default: true
-  prismwardrobe.command.help:
+  ruinedwardrobe.command.help:
     default: true
-  prismwardrobe.command.list:
+  ruinedwardrobe.command.list:
     default: true
-  prismwardrobe.command.doctor:
+  ruinedwardrobe.command.doctor:
     default: op
-  prismwardrobe.command.reload:
+  ruinedwardrobe.command.reload:
     default: op
-  prismwardrobe.command.migrate:
+  ruinedwardrobe.command.migrate:
     default: op
-  prismwardrobe.admin:
+  ruinedwardrobe.admin:
     default: op
-  prismwardrobe.admin.*:
+  ruinedwardrobe.admin.*:
     default: op
     children:
-      prismwardrobe.admin: true
-      prismwardrobe.command.doctor: true
-      prismwardrobe.command.reload: true
-      prismwardrobe.command.migrate: true
-  prismwardrobe.command.*:
+      ruinedwardrobe.admin: true
+      ruinedwardrobe.command.doctor: true
+      ruinedwardrobe.command.reload: true
+      ruinedwardrobe.command.migrate: true
+  ruinedwardrobe.command.*:
     default: op
     children:
-      prismwardrobe.command.help: true
-      prismwardrobe.command.list: true
-      prismwardrobe.command.doctor: true
-      prismwardrobe.command.reload: true
-      prismwardrobe.command.migrate: true
-  prismwardrobe.bypass.cooldown:
+      ruinedwardrobe.command.help: true
+      ruinedwardrobe.command.list: true
+      ruinedwardrobe.command.doctor: true
+      ruinedwardrobe.command.reload: true
+      ruinedwardrobe.command.migrate: true
+  ruinedwardrobe.bypass.cooldown:
     default: op
-  prismwardrobe.bypass.restrictions:
+  ruinedwardrobe.bypass.restrictions:
     default: op
-  prismwardrobe.bypass.emptycheck:
+  ruinedwardrobe.bypass.emptycheck:
     default: op
-  prismwardrobe.bypass.combat:
+  ruinedwardrobe.bypass.combat:
     default: op
-  prismwardrobe.notify.update:
+  ruinedwardrobe.notify.update:
     default: op
-  prismwardrobe.api.listen:
+  ruinedwardrobe.api.listen:
     default: false

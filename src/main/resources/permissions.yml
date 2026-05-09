@@ -1,17 +1,17 @@
-# PrismWardrobe permission mapping reference
+# RuinedWardrobe permission mapping reference
 # ---------------------------------------------------------------------------
 # IMPORTANT:
 # - This file is a documented template/reference.
-# - PrismWardrobe does NOT automatically assign these groups to players.
+# - RuinedWardrobe does NOT automatically assign these groups to players.
 # - Apply these nodes in your permission plugin (LuckPerms, PEX, etc.).
 #
 # Core permission conventions:
-# - prismwardrobe.use: allows base /wardrobe access.
-# - prismwardrobe.command.*: grants all non-admin command nodes.
-# - prismwardrobe.command.doctor: runtime diagnostics command.
-# - prismwardrobe.admin.*: grants all admin command nodes.
-# - prismwardrobe.slots.<n>: grants slot tier (highest node wins).
-# - prismwardrobe.bypass.*: bypasses specific protections/restrictions.
+# - ruinedwardrobe.use: allows base /wardrobe access.
+# - ruinedwardrobe.command.*: grants all non-admin command nodes.
+# - ruinedwardrobe.command.doctor: runtime diagnostics command.
+# - ruinedwardrobe.admin.*: grants all admin command nodes.
+# - ruinedwardrobe.slots.<n>: grants slot tier (highest node wins).
+# - ruinedwardrobe.bypass.*: bypasses specific protections/restrictions.
 #
 # Recommended rank strategy:
 # - Keep one slot tier node per rank (3, 6, 9, 15, etc.).
@@ -26,31 +26,31 @@
 # Baseline group for normal players.
 # Includes only wardrobe user commands and the base 3-slot tier.
 default-player:
-  - prismwardrobe.use
-  - prismwardrobe.command.help
-  - prismwardrobe.command.list
-  - prismwardrobe.slots.3
+  - ruinedwardrobe.use
+  - ruinedwardrobe.command.help
+  - ruinedwardrobe.command.list
+  - ruinedwardrobe.slots.3
 
 # Mid-tier rank example.
 # Adds only slot expansion. Command access is inherited from default-player.
 vip:
-  - prismwardrobe.slots.6
+  - ruinedwardrobe.slots.6
 
 # Higher rank slot expansion.
 mvp:
-  - prismwardrobe.slots.9
+  - ruinedwardrobe.slots.9
 
 # Premium rank slot expansion.
 legend:
-  - prismwardrobe.slots.15
+  - ruinedwardrobe.slots.15
 
 # Staff/administrator profile.
 # Full command access plus bypass permissions for moderation/support cases.
 admin:
-  - prismwardrobe.admin.*
-  - prismwardrobe.command.*
-  - prismwardrobe.command.doctor
-  - prismwardrobe.bypass.cooldown
-  - prismwardrobe.bypass.restrictions
-  - prismwardrobe.bypass.emptycheck
-  - prismwardrobe.bypass.combat
+  - ruinedwardrobe.admin.*
+  - ruinedwardrobe.command.*
+  - ruinedwardrobe.command.doctor
+  - ruinedwardrobe.bypass.cooldown
+  - ruinedwardrobe.bypass.restrictions
+  - ruinedwardrobe.bypass.emptycheck
+  - ruinedwardrobe.bypass.combat

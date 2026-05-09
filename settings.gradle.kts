@@ -1,1 +1,1 @@
-rootProject.name = "PrismWardrobe"
+rootProject.name = "RuinedWardrobe"
