@@ -1,4 +1,4 @@
-# PrismWardrobe default language file (fallback)
+# RuinedWardrobe default language file (fallback)
 # ---------------------------------------------------------------------------
 # This file is loaded as the hard fallback locale.
 # Missing keys from your selected language are pulled from this file.
@@ -9,7 +9,7 @@
 #   - MINIMESSAGE: supports <red>, <bold>, etc.
 #   - BOTH: supports either style
 #
-# Placeholders used by PrismWardrobe (only replace placeholders you use):
+# Placeholders used by RuinedWardrobe (only replace placeholders you use):
 # - {page}, {max_page}: GUI paging state
 # - {slot}, {max}: slot indexes and limits
 # - {name}: wardrobe set name
@@ -90,8 +90,8 @@ success:
   renamed: "<green>Renamed slot <yellow>{slot}</yellow> to <gold>{name}</gold>.</green>"
   armor-taken: "<green>Took armor from slot <yellow>{slot}</yellow>.</green>"
   armor-placed: "<green>Placed armor in slot <yellow>{slot}</yellow>.</green>"
-  reloaded: "<green>PrismWardrobe reloaded!</green>"
-  migration-complete: "<green>Migration to <yellow>{target}</yellow> complete! Players: {players}, Sets: {sets}</green>"
+  reloaded: "<green>RuinedWardrobe reloaded!</green>"
+  migration-complete: "<green>Migration to <yellow>{target}</yellow> complete! Players: {players}, Sets: {sets}. <gray>{message}</gray></green>"
   admin-setslots: "<green>Set <yellow>{player}</yellow> bonus slots: <gold>{old}</gold> -> <gold>{new}</gold></green>"
   admin-clearslots: "<green>Cleared bonus slots for <yellow>{player}</yellow>.</green>"
 
@@ -124,7 +124,7 @@ error:
 
 # Help output for /wardrobe help.
 help:
-  header: "<gold>PrismWardrobe Commands:</gold>"
+  header: "<gold>RuinedWardrobe Commands:</gold>"
   open: "<gray>{root}</gray> <dark_gray>-</dark_gray> <yellow>Open your wardrobe GUI (player only)</yellow>"
   list: "<gray>{root} list [player]</gray> <dark_gray>-</dark_gray> <yellow>List stored wardrobe sets</yellow>"
   doctor: "<gray>{root} doctor</gray> <dark_gray>-</dark_gray> <yellow>Show runtime diagnostics (storage/cache/sync)</yellow>"
@@ -137,7 +137,7 @@ help:
 
 # Runtime diagnostics output for /wardrobe doctor.
 doctor:
-  header: "<gold>PrismWardrobe Doctor</gold>"
+  header: "<gold>RuinedWardrobe Doctor</gold>"
   storage: "<gray>Storage:</gray> <yellow>{storage}</yellow> <dark_gray>|</dark_gray> <gray>Ready:</gray> <yellow>{ready}</yellow> <dark_gray>|</dark_gray> <gray>Active Conns:</gray> <yellow>{active}</yellow>"
   players: "<gray>Online Players:</gray> <yellow>{online}</yellow>"
   cache: "<gray>Cache:</gray> <yellow>size={size}</yellow> <dark_gray>|</dark_gray> <yellow>hitRate={hit_rate}</yellow> <dark_gray>|</dark_gray> <yellow>hits={hits}</yellow> <dark_gray>|</dark_gray> <yellow>misses={misses}</yellow>"

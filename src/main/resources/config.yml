@@ -1,16 +1,22 @@
-# PrismWardrobe main configuration
+# RuinedWardrobe main configuration
 # ------------------------------------------------------------
 # Reload supported with: /wardrobe reload
 # This file controls behavior, storage, integrations, anti-dupe, and performance.
+# Most servers can run these defaults as-is. The comments explain what to raise or lower
+# when you grow into hundreds or thousands of online players.
+# Built for Paper/Folia 26.1.1 on Java 25.
+# On config version changes, RuinedWardrobe backs up the old file and writes the new template automatically.
+# Storage migrations also write a full snapshot backup before data is copied.
+# Older local schema layouts are imported automatically on startup with a verified backup.
 # All text is configured in lang/*.yml.
 
-# Config schema version used by PrismWardrobe for compatibility checks.
-# If this value does not match the plugin's expected version, the plugin will disable itself
-# and ask you to regenerate this file from the latest release bundle.
-config-version: 1
+# Config schema version used by RuinedWardrobe for compatibility checks.
+# If this value does not match the plugin's expected version, the plugin will back up this file,
+# replace it with the latest bundled template, and continue loading with the new version.
+config-version: 5
 
 language:
-  # Global language file name loaded from /plugins/PrismWardrobe/lang/<active>.yml
+  # Global language file name loaded from /plugins/RuinedWardrobe/lang/<active>.yml
   # Fallback keys are always pulled from lang/en_US.yml when missing.
   # Example values: en_US, es_ES, fr_FR
   active: en_US
@@ -25,7 +31,7 @@ messages:
 wardrobe:
   # Base number of unlocked slots for players with no rank slot permissions.
   # Final slot amount is computed from:
-  # max( default-slots, highest prismwardrobe.slots.<n> permission ) + admin bonus slots
+  # max( default-slots, highest ruinedwardrobe.slots.<n> permission ) + admin bonus slots
   default-slots: 8
 
   # Hard upper limit to protect UI, database size, and misuse.
@@ -38,26 +44,37 @@ wardrobe:
   max-pages: 2
 
   # Cooldown after successful equip.
-  # Players with prismwardrobe.bypass.cooldown ignore this.
+  # Players with ruinedwardrobe.bypass.cooldown ignore this.
   equip-cooldown-seconds: 3
+
+death:
+  # Controls what happens to equipped wardrobe armor when a player dies and keepInventory is false.
+  # false = vanilla-style loss: wardrobe armor drops as normal items and is removed from the saved wardrobe slot.
+  # true  = protected wardrobe: wardrobe armor does not drop, the saved wardrobe slot stays intact,
+  #         and the equipped/selected state is cleared so the player can re-equip it after respawn.
+  # Minecraft's keepInventory gamerule always wins; when keepInventory is true, equipped armor remains untouched.
+  keep-wardrobe-on-death: false
 
 storage:
   # Storage backend:
   # SQLITE = local single-file storage, easiest setup
   # MYSQL = shared DB for multi-server/network deployments
+  # The explicit `/wardrobe migrate` command verifies copied row digests and writes a snapshot backup first.
   type: SQLITE # SQLITE | MYSQL
 
   sqlite:
     # Relative path from plugin data folder.
     # Example absolute output path:
-    # /plugins/PrismWardrobe/data/wardrobe.db
+    # /plugins/RuinedWardrobe/data/wardrobe.db
+    # Keep this file on fast local storage and back it up before major server updates.
     file: data/wardrobe.db
 
   mysql:
     # MySQL/MariaDB connection details.
+    # Recommended when multiple servers need to share the same wardrobe data.
     host: 127.0.0.1
     port: 3306
-    database: prismwardrobe
+    database: ruinedwardrobe
     username: root
     password: change_me
 
@@ -77,33 +94,90 @@ storage:
 performance:
   cache:
     # In-memory profile cache.
-    # max-size: approximate maximum player profiles cached before eviction.
-    # expire-after-seconds: idle TTL before profile is evicted from cache.
+    # max-size: maximum player profiles kept in memory.
+    # expire-after-seconds: unload cached profiles after this many idle seconds.
+    # Bigger cache = fewer database reads. Smaller cache = lower memory use.
     max-size: 100000
     expire-after-seconds: 600
 
+  session:
+    # Join behavior.
+    # preload-profile-on-join:
+    #   false = fastest joins; profile loads only when a player uses wardrobe features.
+    #   true  = warmer placeholders/menus right after login, but every join does a DB read.
+    # touch-player-row-on-join:
+    #   false = only create DB rows when a player actually saves/equips/admin-slots.
+    #   true  = create/update a player row on every join; useful only if another tool expects all players in DB.
+    preload-profile-on-join: false
+    touch-player-row-on-join: false
+
   sync:
     # Cross-instance sync polling (mainly for MYSQL shared DB mode).
-    # poll-seconds: interval for checking profile version updates.
-    # batch-size: online players checked per DB batch query.
+    # Used only when storage.type is MYSQL.
+    # poll-seconds: how often this server checks whether another server changed an online player's wardrobe.
+    # batch-size: how many online players are checked per DB query batch.
+    # Huge networks: increase batch-size if sync falls behind; increase poll-seconds to reduce DB load.
     poll-seconds: 5
     batch-size: 150
 
+  armor-sync:
+    # Safety net that periodically saves durability/repair changes for currently equipped wardrobe armor.
+    # Event hooks already save normal damage, mend, break, quit, and death changes.
+    # enabled: keep true unless you want only event-driven sync.
+    # scan-interval-ticks: how often the safety scan runs. 20 ticks = 1 second.
+    # scan-batch-size: max online players inspected per scan. Lower this on massive servers to flatten spikes.
+    # shutdown-flush-timeout-seconds: max time to wait while saving online wardrobe armor during shutdown/reload.
+    enabled: true
+    scan-interval-ticks: 40
+    scan-batch-size: 500
+    shutdown-flush-timeout-seconds: 10
+
   database:
     # Async DB write queue and retry policy.
-    # write-queue-capacity: max queued writes before rejection.
-    # write-retries: retries after DB operation failure.
-    # retry-delay-ms: delay between retry attempts.
-    # worker-threads: async DB workers (increase for heavy load).
+    # write-queue-capacity: max queued DB jobs before new work is rejected instead of freezing the server.
+    # write-retries: retry count for failed writes.
+    # retry-delay-ms: wait between retries.
+    # worker-threads: async DB workers. The plugin caps this to the connection pool size.
+    # Huge servers: scale max-size and worker-threads together; don't set workers far above DB capacity.
     write-queue-capacity: 2048
     write-retries: 3
     retry-delay-ms: 150
     worker-threads: 4
 
   health:
+    # Lightweight health log for quick diagnostics.
+    # Set enabled false if you prefer silent production logs.
+    enabled: true
+
     # Interval for internal health log lines:
     # cache size/hit rate, DB queue depth/latency, sync poll timing, etc.
     log-seconds: 120
+
+audit:
+  # Writes a separate wardrobe activity log to help trace armor loss, dupes, sync issues, and storage errors.
+  # This is intentionally not console spam. Logs go to:
+  # /plugins/RuinedWardrobe/logs/wardrobe-audit-YYYY-MM-DD.log
+  enabled: true
+
+  # Folder inside the plugin data folder where audit files are written.
+  # Keep this inside the plugin folder; paths that try to escape it are ignored for safety.
+  directory: logs
+
+  # Async log queue size. If disk stalls and this fills, new audit lines are dropped instead of freezing the server.
+  # Huge servers with many wardrobe actions can raise this.
+  queue-size: 4096
+
+  # Successful background armor syncs are usually noisy.
+  # false = log important player actions, death handling, sanitizer removals, and errors only.
+  # true  = also log every successful changed armor sync.
+  log-successful-syncs: false
+
+  # Logs denied equips/edits/deletes such as cooldowns, locked slots, and restrictions.
+  log-blocked-actions: true
+
+  # Adds simple material summaries for saved/equipped sets.
+  # Useful for debugging, but disable it if you want smaller logs.
+  include-item-summaries: true
 
 restrictions:
   # Master restriction toggle for equip checks.
@@ -174,5 +248,5 @@ metrics:
   plugin-id: 0
 
 debug:
-  # Enables additional debug logging (correlation IDs and action traces).
+  # Enables additional debug logging for diagnostics and migration troubleshooting.
   enabled: false

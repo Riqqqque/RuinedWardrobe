@@ -1,21 +1,78 @@
-MIT License
+RuinedWardrobe Free Server Use License v1.0
 
-Copyright (c) 2026 Riqqqque
+Copyright (c) 2026 Rique
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This license lets server owners use RuinedWardrobe freely, including on
+monetized Minecraft servers, while preventing people from selling the plugin
+jar, source code, forks, or modified copies as a product.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+"Plugin" means RuinedWardrobe, including its source code, compiled jar,
+documentation, configuration files, and any modified version or derivative.
+
+"Server Monetization" means earning money from a Minecraft server or network
+that uses the Plugin, including donations, ranks, cosmetics, memberships,
+advertising, paid access, store sales, or similar server revenue.
+
+"Commercial Redistribution" means selling, renting, leasing, sublicensing,
+paywalling, marketplace-listing, bundling for paid access, or otherwise
+charging money for access to the Plugin, its source code, its compiled jar, a
+modified copy, or a derivative.
+
+2. Permissions
+
+You may:
+
+- Download, copy, install, and run the Plugin on any Minecraft server.
+- Use the Plugin on servers that generate revenue through Server Monetization.
+- Read, study, and modify the source code.
+- Build private or public modified copies for servers you own, operate, manage,
+  or maintain.
+- Share the original Plugin or modified copies for free, as long as this
+  license and the copyright notice remain included.
+- Use the Plugin in free server setup packs, free templates, or free tutorials,
+  as long as no fee is charged for access to the Plugin itself.
+
+3. Restrictions
+
+You may not:
+
+- Sell, rent, lease, sublicense, or commercially redistribute the Plugin.
+- Sell access to the Plugin source code, compiled jar, forks, updates, builds,
+  or modified copies.
+- Put the Plugin behind a paid download, paid membership, paid bundle, paid
+  marketplace listing, or paid resource page.
+- Claim that you wrote the original Plugin.
+- Remove or hide this license or the copyright notice from redistributed copies.
+- Use the Plugin name, branding, or repository identity to imply endorsement of
+  an unofficial fork or service.
+- Add malware, credential theft, backdoors, hidden telemetry, or intentionally
+  harmful behavior to redistributed copies.
+
+4. Server Revenue Is Allowed
+
+Running the Plugin on a monetized Minecraft server is allowed. You may make
+money from your server while using RuinedWardrobe. The restriction is only on
+selling or commercially redistributing the Plugin itself, its source code, its
+jar, forks, or modified copies.
+
+5. Free Redistribution
+
+Free redistribution is allowed if:
+
+- The Plugin is provided at no charge.
+- This license remains included.
+- The original copyright notice remains included.
+- Any modified copy is clearly marked as modified.
+
+6. No Warranty
+
+The Plugin is provided "as is", without warranty of any kind. The author is not
+liable for data loss, server issues, item loss, downtime, lost revenue, or any
+other damages connected to use, modification, or redistribution of the Plugin.
+
+7. Not OSI Open Source
+
+This is a source-available license. It is not an Open Source Initiative license
+because it restricts Commercial Redistribution.
