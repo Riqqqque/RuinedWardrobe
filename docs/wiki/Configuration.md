@@ -6,9 +6,23 @@ Main config:
 plugins/RuinedWardrobe/config.yml
 ```
 
-RuinedWardrobe backs up and regenerates config files when their `config-version` no longer matches the plugin template. This prevents broken startup behavior after config schema changes.
+RuinedWardrobe backs up and regenerates config files when their `config-version` no longer matches the bundled template. That protects startup from old or missing keys after updates.
 
-## Wardrobe
+## Quick Decision Table
+
+| Section | Usually change? | Notes |
+| --- | --- | --- |
+| `language` | Sometimes | Pick the active file from `lang/`. |
+| `messages` | Rarely | `BOTH` is the easiest mode for mixed legacy and MiniMessage text. |
+| `wardrobe` | Yes | Slot count, pages, and cooldown live here. |
+| `death` | Maybe | Decide vanilla loss or protected wardrobe behavior. |
+| `storage` | Yes | SQLite for one server, MySQL for networks. |
+| `performance` | Only when needed | Defaults are meant to stay stable under normal load. |
+| `audit` | Usually no | Keep enabled unless you have a strong reason. |
+| `restrictions` | Server-specific | World, gamemode, combat, and PlaceholderAPI rules. |
+| `anti-dupe` | Server-specific | Strict container lock is powerful but changes normal player flow. |
+
+## Slots And Pages
 
 ```yaml
 wardrobe:
@@ -18,29 +32,27 @@ wardrobe:
   equip-cooldown-seconds: 3
 ```
 
-- `default-slots` is the baseline for players without slot permissions.
-- `max-slots-cap` is the hard safety limit.
-- `max-pages` controls how many GUI pages are shown.
-- `equip-cooldown-seconds` reduces spam switching unless a player has `ruinedwardrobe.bypass.cooldown`.
-
-Final slot count is:
+Effective slot count:
 
 ```text
-max(default-slots, highest ruinedwardrobe.slots.<amount>) + admin bonus slots
+min(max-slots-cap, max(default-slots, highest ruinedwardrobe.slots.<amount>) + admin bonus slots)
 ```
 
-## Death
+Use `default-slots` for your baseline. Use `ruinedwardrobe.slots.<amount>` permissions for ranks. Use `/wardrobe admin setslots <player> <amount>` for one-off support adjustments.
+
+## Death Behavior
 
 ```yaml
 death:
   keep-wardrobe-on-death: false
 ```
 
-When false, RuinedWardrobe respects vanilla loss if keepInventory is off. Equipped wardrobe armor drops as normal unbound items and is removed from the saved wardrobe slot.
+| Value | Behavior |
+| --- | --- |
+| `false` | Vanilla-style loss when keepInventory is off. Equipped wardrobe armor drops and is removed from the saved slot. |
+| `true` | Wardrobe armor is removed from death drops, the saved slot stays intact, and selected state is cleared for re-equip after respawn. |
 
-When true, equipped wardrobe armor is removed from death drops, the saved wardrobe slot remains intact, and selected/equipped state is cleared so the player can re-equip after respawn.
-
-Minecraft keepInventory always wins. If keepInventory is true, equipped armor is left untouched.
+Minecraft's `keepInventory` gamerule wins either way. When keepInventory is true, equipped armor is left alone.
 
 ## Storage
 
@@ -49,9 +61,7 @@ storage:
   type: SQLITE
 ```
 
-Use SQLite for one server. Use MySQL for multi-server networks or when multiple servers need shared wardrobe data.
-
-SQLite file:
+Use SQLite when the data belongs to one server:
 
 ```yaml
 storage:
@@ -59,7 +69,7 @@ storage:
     file: data/wardrobe.db
 ```
 
-MySQL settings:
+Use MySQL/MariaDB when more than one server needs the same wardrobe data:
 
 ```yaml
 storage:
@@ -72,6 +82,18 @@ storage:
     params: useUnicode=true&characterEncoding=utf8&useSSL=false
 ```
 
+Pool settings:
+
+```yaml
+storage:
+  pool:
+    max-size: 10
+    min-idle: 2
+    connection-timeout-ms: 10000
+```
+
+Keep DB worker count and pool size close. More workers than connections usually adds waiting instead of speed.
+
 ## Performance
 
 Cache:
@@ -83,9 +105,7 @@ performance:
     expire-after-seconds: 600
 ```
 
-Larger cache means fewer DB reads. Smaller cache means lower memory use.
-
-Session behavior:
+Session:
 
 ```yaml
 performance:
@@ -94,9 +114,18 @@ performance:
     touch-player-row-on-join: false
 ```
 
-Keep both false on large servers unless you need placeholders or another tool to see player rows immediately after login.
+Keep both session values false on large servers unless you need PlaceholderAPI or another tool to see player data right after login.
 
-Armor sync:
+MySQL sync:
+
+```yaml
+performance:
+  sync:
+    poll-seconds: 5
+    batch-size: 150
+```
+
+Armor safety scan:
 
 ```yaml
 performance:
@@ -107,9 +136,7 @@ performance:
     shutdown-flush-timeout-seconds: 10
 ```
 
-This safety net saves equipped wardrobe armor changes that may not be caught by direct events. Lower `scan-batch-size` if you want flatter load spikes on huge servers.
-
-Database queue:
+DB queue:
 
 ```yaml
 performance:
@@ -120,9 +147,16 @@ performance:
     worker-threads: 4
 ```
 
-Do not set worker threads far above your connection pool. More workers than DB capacity usually makes performance worse.
+Health logging:
 
-## Audit
+```yaml
+performance:
+  health:
+    enabled: true
+    log-seconds: 120
+```
+
+## Audit Log
 
 ```yaml
 audit:
@@ -134,9 +168,77 @@ audit:
   include-item-summaries: true
 ```
 
-Keep audit enabled. It is the best way to diagnose item loss reports.
+Keep audit enabled. It writes to:
 
-Turn on `log-successful-syncs` only while investigating armor sync behavior because it can be noisy.
+```text
+plugins/RuinedWardrobe/logs/wardrobe-audit-YYYY-MM-DD.log
+```
+
+Turn on `log-successful-syncs` only while investigating armor sync behavior. It can get noisy.
+
+## Restrictions
+
+```yaml
+restrictions:
+  enabled: true
+  blocked-worlds: []
+  allowed-worlds: []
+  blocked-gamemodes:
+    - SPECTATOR
+```
+
+Allow-list wins before blocked-worlds. If `allowed-worlds` is not empty, only those worlds can use equip.
+
+Combat checks use the detected combat provider when enabled:
+
+```yaml
+restrictions:
+  combat-check:
+    enabled: true
+```
+
+Placeholder rules require PlaceholderAPI and `integrations.placeholderapi.enabled: true`:
+
+```yaml
+restrictions:
+  placeholder-rules:
+    region_block_example:
+      placeholder: "%worldguard_region_name%"
+      disallow-values:
+        - spawn
+      reason-key: restriction.placeholder
+```
+
+## Integrations
+
+```yaml
+integrations:
+  placeholderapi:
+    enabled: true
+  vault:
+    enabled: true
+  combat:
+    enabled: true
+```
+
+These are discovery toggles. The optional plugin still has to be installed and enabled on the server.
+
+## GUI Feedback
+
+```yaml
+gui:
+  sounds:
+    enabled: true
+  actionbar:
+    enabled: true
+  titles:
+    enabled: true
+  animations:
+    enabled: true
+    click-delay-ticks: 2
+```
+
+The actual inventory layout is in `gui.yml`, not this section.
 
 ## Anti-Dupe
 
@@ -145,4 +247,4 @@ anti-dupe:
   strict-container-lock: false
 ```
 
-When true, players wearing wardrobe-bound armor cannot interact with non-player containers. This is stricter than most servers need, but it is available for high-risk environments.
+When true, players wearing wardrobe-bound armor cannot interact with non-player containers. Test this before using it on a live economy server because it intentionally changes how players can interact while wearing wardrobe sets.

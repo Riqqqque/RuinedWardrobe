@@ -1,55 +1,160 @@
 # GUI And Language Customization
 
-## Files
+RuinedWardrobe separates layout from text.
+
+| File | Purpose |
+| --- | --- |
+| `plugins/RuinedWardrobe/gui.yml` | Inventory rows, columns, buttons, navigation slots, item templates. |
+| `plugins/RuinedWardrobe/lang/en_US.yml` | Titles, names, lore, command messages, errors, and diagnostics text. |
+
+Reload config-only changes with:
 
 ```text
-plugins/RuinedWardrobe/gui.yml
-plugins/RuinedWardrobe/lang/en_US.yml
+/wardrobe reload
 ```
-
-`gui.yml` controls layout and item templates. `lang/en_US.yml` controls player-facing text.
 
 ## GUI Layout
 
-RuinedWardrobe uses a page-based inventory GUI. Armor rows are configured separately from equip buttons and navigation controls.
+Default layout is a six-row chest-style menu.
 
-Common layout parts:
+```yaml
+layout:
+  rows: 6
+  slot-display-indices:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+```
 
-- `layout.rows`
-- `layout.slot-display-indices`
-- `layout.equip-buttons.slots`
-- `layout.navigation.previous-slot`
-- `layout.navigation.next-slot`
-- `layout.navigation.close-slot`
-- `templates.*`
+`slot-display-indices` are column indexes from `0` to `8`. The default shows nine wardrobe sets per page.
 
-## Templates
+Armor display rows:
 
-Templates control the material, name key, lore keys, glow, and optional custom model data.
+```yaml
+armor-layout:
+  helmet-row: 0
+  chestplate-row: 1
+  leggings-row: 2
+  boots-row: 3
+```
 
-This lets resource-pack servers replace default visuals without code changes.
+Equip buttons:
 
-## Language Keys
+```yaml
+equip-buttons:
+  row: 4
+  slots:
+    - 36
+    - 37
+    - 38
+    - 39
+    - 40
+    - 41
+    - 42
+    - 43
+    - 44
+```
 
-All normal player messages should come from language files. Missing keys fall back to `lang/en_US.yml`.
+Navigation:
 
-Message parser mode is controlled by:
+```yaml
+navigation:
+  previous-page-slot: 45
+  close-slot: 49
+  next-page-slot: 53
+```
+
+## Item Templates
+
+Templates control the material, custom model data, glow, name key, and lore keys:
+
+```yaml
+templates:
+  saved-slot:
+    material: PLAYER_HEAD
+    model-data: 0
+    glow: false
+    name-key: gui.slot-saved-name
+    lore-keys:
+      - gui.slot-saved-lore
+```
+
+Useful templates:
+
+| Template | Used for |
+| --- | --- |
+| `empty-slot` | Empty armor cells. |
+| `saved-slot` | Stored armor pieces. |
+| `locked-slot` | Slots above the player's slot cap. |
+| `cooldown-slot` | Equip cooldown feedback. |
+| `equip-button-unequipped` | Equip button for inactive sets. |
+| `equip-button-equipped` | Unequip button for active set. |
+| `control-filler` | Cosmetic filler panes. |
+
+## Language Files
+
+Default language file:
+
+```text
+plugins/RuinedWardrobe/lang/en_US.yml
+```
+
+Active language:
+
+```yaml
+language:
+  active: en_US
+```
+
+Missing keys fall back to `lang/en_US.yml`.
+
+## Message Formatting
 
 ```yaml
 messages:
   format-mode: BOTH
 ```
 
-Modes:
+| Mode | Use |
+| --- | --- |
+| `LEGACY` | Legacy `&` color codes. |
+| `MINIMESSAGE` | MiniMessage tags such as `<green>`. |
+| `BOTH` | Mixed support. Best for most servers. |
 
-- `LEGACY`: legacy `&` color codes.
-- `MINIMESSAGE`: MiniMessage tags.
-- `BOTH`: mixed support.
+## Built-In Placeholders In Messages
 
-## Tips
+Common internal placeholders:
 
-- Keep GUI rows at 6 unless you know the layout math.
-- Keep navigation controls away from armor columns.
-- Use short item names and concise lore for readability.
-- Test the GUI on a normal player account, not only as op.
-- If players cannot click a slot, check whether it is locked by their slot cap.
+```text
+{page}
+{max_page}
+{slot}
+{max}
+{name}
+{seconds}
+{world}
+{gamemode}
+{player}
+{old}
+{new}
+{root}
+{reason}
+{message}
+```
+
+Only use placeholders that the specific message already supports.
+
+## Design Tips
+
+- Keep `layout.rows: 6` unless you are changing the whole layout.
+- Keep equip button count aligned with `slot-display-indices`.
+- Keep navigation buttons away from armor columns.
+- Use short names and short lore. Long lore gets noisy fast in a chest GUI.
+- Test with a normal player account so locked slots and permissions are visible.
+- If a resource pack uses CustomModelData, set `model-data` on templates instead of changing code.

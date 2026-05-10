@@ -2,14 +2,9 @@
 
 RuinedWardrobe uses the RuinedWardrobe Free Server Use License.
 
-Short version:
+Plain-English version: server owners can use it for free, including on servers that make money. The plugin itself cannot be sold.
 
-- You can use the plugin for free.
-- You can use it on monetized servers.
-- You can make money from your server while using it.
-- You can read and modify the code.
-- You can share the plugin or modified versions for free.
-- You cannot sell the plugin jar, source code, forks, builds, modified copies, or paid access to updates.
+The full `LICENSE` file controls if there is ever a conflict with this page.
 
 ## Allowed
 
@@ -17,7 +12,8 @@ You may:
 
 - Run RuinedWardrobe on a private server.
 - Run RuinedWardrobe on a public server.
-- Run RuinedWardrobe on a server that sells ranks, cosmetics, crate keys, memberships, ads, paid access, or similar server products.
+- Run RuinedWardrobe on monetized servers.
+- Use it on servers with ranks, cosmetics, crate keys, memberships, ads, paid access, stores, or similar server products.
 - Modify the source for your own server.
 - Share the original jar for free.
 - Share a modified fork for free if the license stays included and the fork is clearly marked as modified.
@@ -29,7 +25,8 @@ You may not:
 - Sell the jar.
 - Sell the source code.
 - Sell a fork.
-- Sell paid builds or paid update access.
+- Sell paid builds.
+- Sell paid update access.
 - Put the plugin behind a paid resource page.
 - Bundle the plugin into a paid setup and charge for the plugin itself.
 - Claim you wrote the original plugin.
@@ -37,14 +34,21 @@ You may not:
 
 ## Paid Server Setups
 
-If you are paid to set up a server, you may install RuinedWardrobe as part of that service. You are being paid for setup labor, not for selling RuinedWardrobe.
+If someone pays you to set up a server, you may install RuinedWardrobe as part of that setup.
 
-Do not charge a separate fee for the plugin jar or source.
+That payment is for setup labor, not for selling RuinedWardrobe. Do not charge a separate fee for the jar, source, fork, or plugin access.
 
-## Why This Is Not MIT
+## Common Cases
 
-MIT would allow people to sell copies of the plugin. This project is meant to be free for server owners while preventing resale of the plugin itself.
+| Case | Allowed? |
+| --- | --- |
+| A server sells ranks and uses RuinedWardrobe | Yes |
+| A server sells cosmetics and uses RuinedWardrobe | Yes |
+| A setup service installs the free jar while charging for labor | Yes |
+| Someone sells RuinedWardrobe on a marketplace | No |
+| Someone sells a fork with renamed branding | No |
+| Someone posts a free modified fork with the license included | Yes |
 
-## Legal Note
+## Why It Is Not MIT
 
-This page is a plain-English explanation. The full license text in `LICENSE` controls.
+MIT would allow resale of the plugin itself. This project is meant to stay free for server owners while blocking people from selling the jar, source, forks, builds, or update access.
