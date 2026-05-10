@@ -1,7 +1,7 @@
 # RuinedWardrobe
 
 [![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
-[![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/download/v1.0.0/RuinedWardrobe-1.0.0.jar)
+[![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
 [![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](LICENSE)
@@ -32,11 +32,11 @@ It is free to use on any server, including monetized servers. The source and jar
 
 Latest jar:
 
-[Download RuinedWardrobe](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+[Download RuinedWardrobe](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
 
 ## Install
 
-1. Download `RuinedWardrobe-1.0.0.jar` from the latest GitHub release.
+1. Download `RuinedWardrobe.jar` from the latest GitHub release.
 2. Put the jar in your server `plugins` folder.
 3. Start the server once so RuinedWardrobe creates its config files.
 4. Edit `plugins/RuinedWardrobe/config.yml`, `gui.yml`, `lang/en_US.yml`, and permissions as needed.
