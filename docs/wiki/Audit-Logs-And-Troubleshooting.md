@@ -1,6 +1,6 @@
 # Audit Logs And Troubleshooting
 
-When a player says armor disappeared, duplicated, failed to save, or changed after death, start with the audit log.
+When a player reports missing armor, duplicated armor, failed saves, failed equips, or weird death behavior, start with the audit log.
 
 Default path:
 
@@ -10,6 +10,9 @@ plugins/RuinedWardrobe/logs/wardrobe-audit-YYYY-MM-DD.log
 
 The audit log is separate from console. It is meant to answer one question: what did RuinedWardrobe do around this player's wardrobe items?
 
+> [!TIP]
+> Ask for player name, approximate time, slot number, and the exact click sequence before searching logs.
+
 ## Log Format
 
 Audit lines are timestamped and key-value based:
@@ -18,9 +21,9 @@ Audit lines are timestamped and key-value based:
 2026-05-09 19:34:11.123 action=EQUIP playerId=... player="Rique" slot=2 name="Netherite"
 ```
 
-Search by player name, UUID, action, slot, or the approximate timestamp.
+Search by player name, UUID, action, slot, or timestamp.
 
-## Useful Actions
+## Action Reference
 
 | Action | Meaning |
 | --- | --- |
@@ -36,7 +39,7 @@ Search by player name, UUID, action, slot, or the approximate timestamp.
 | `DEATH_PRESERVE` | Protected death behavior kept the saved set. |
 | `FOREIGN_BOUND_ARMOR_REMOVED` | Armor bound to another owner was removed. |
 | `ITEM_DESERIALIZE_ERROR` | Stored item data could not be read. |
-| `ARMOR_SYNC_ERROR` | A background armor sync failed. |
+| `ARMOR_SYNC_ERROR` | Background armor sync failed. |
 | `SAVE_SET_ERROR` | Saving failed. |
 | `EQUIP_ERROR` | Equipping failed. |
 | `DELETE_SET_ERROR` | Deleting failed. |
@@ -46,24 +49,25 @@ Search by player name, UUID, action, slot, or the approximate timestamp.
 
 ## Missing Armor Runbook
 
-1. Ask for the player name, approximate time, slot number, and what they clicked.
+1. Ask for player name, UUID if available, approximate time, slot number, and what they clicked.
 2. Open the audit log for that date.
 3. Search for the player name or UUID.
-4. Find the last `SAVE_SET`, `EQUIP`, `UNEQUIP`, `ARMOR_TAKE`, `DELETE_SET`, or death action.
+4. Find the latest relevant `SAVE_SET`, `EQUIP`, `UNEQUIP`, `ARMOR_TAKE`, `DELETE_SET`, or death action.
 5. Check for `ITEM_DESERIALIZE_ERROR`.
 6. Check for `FOREIGN_BOUND_ARMOR_REMOVED`.
 7. Check console around the same timestamp.
-8. Run `/wardrobe doctor` if storage or queue behavior looks wrong.
+8. Run `/wardrobe doctor`.
+9. If storage looks unhealthy, stop player testing and investigate DB status before more writes.
 
-## Quick Diagnosis Table
+## Fast Diagnosis
 
 | Finding | What it usually means |
 | --- | --- |
 | `EQUIP_DENIED` with empty/nothing saved message | The player clicked a slot with no saved armor. |
-| `DEATH_VANILLA_LOSS` | keepInventory was off and `death.keep-wardrobe-on-death` was false. This is expected. |
+| `DEATH_VANILLA_LOSS` | keepInventory was off and `death.keep-wardrobe-on-death` was false. |
 | `DEATH_PRESERVE` | The plugin removed wardrobe armor from drops and kept the saved set. |
 | `ITEM_DESERIALIZE_ERROR` | Stored item data could not be read after item/server changes or DB corruption. |
-| `FOREIGN_BOUND_ARMOR_REMOVED` | The plugin found bound armor owned by another UUID and removed it. |
+| `FOREIGN_BOUND_ARMOR_REMOVED` | Bound armor owned by another UUID was found and removed. |
 | Queue depth high in `/wardrobe doctor` | DB writes are backing up. Check DB health and pool/worker sizing. |
 | DB probe failed | Storage is unreachable or credentials/settings are wrong. |
 
@@ -71,13 +75,26 @@ Search by player name, UUID, action, slot, or the approximate timestamp.
 
 Check these in order:
 
-1. Permission: `ruinedwardrobe.use`
+1. Base permission: `ruinedwardrobe.use`
 2. Slot tier: `ruinedwardrobe.slots.<amount>`
 3. Cooldown: `wardrobe.equip-cooldown-seconds`
 4. Restrictions: world, gamemode, combat, PlaceholderAPI rules
 5. Empty armor requirement
-6. Whether the target slot actually has saved armor
+6. Whether the target slot has saved armor
 7. Whether another plugin cancelled the equip event
+8. Whether storage is healthy in `/wardrobe doctor`
+
+## Doctor Checklist
+
+Use `/wardrobe doctor` when a report involves failed saves, delayed sync, queue pressure, or database errors.
+
+| Field area | What to look for |
+| --- | --- |
+| Storage | Backend type and whether the DB probe succeeds. |
+| Cache | Unexpectedly low hit rate during normal use. |
+| Queue | Rising depth or repeated write failures. |
+| Sync | Poll timing and batch behavior on MySQL networks. |
+| Armor sync | Whether safety scans are enabled and healthy. |
 
 ## Performance Notes
 
@@ -86,9 +103,9 @@ Audit writes use an async queue. If disk stalls and the queue fills, RuinedWardr
 For very large servers:
 
 - Keep `audit.log-successful-syncs: false`.
-- Raise `audit.queue-size` if many wardrobe actions happen at once.
+- Raise `audit.queue-size` only if support logs are being dropped.
 - Keep audit logs on reliable local storage.
-- Rotate or archive old log files with your normal server backup process.
+- Rotate or archive old log files with the server's normal backup process.
 
 ## Bug Report Bundle
 
@@ -102,3 +119,9 @@ Send these when reporting a real issue:
 - Paper or Folia build
 - Java version
 - Exact player action sequence
+
+## Related Pages
+
+- [Storage, Migration, And Backups](Storage-Migration-And-Backups.md)
+- [Configuration](Configuration.md)
+- [FAQ](FAQ.md)

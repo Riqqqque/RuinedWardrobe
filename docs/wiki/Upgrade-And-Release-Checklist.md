@@ -1,6 +1,9 @@
 # Upgrade And Release Checklist
 
-Use this whenever you update RuinedWardrobe, change storage, or publish a new jar to a live server.
+Use this page when updating RuinedWardrobe, changing storage, or publishing a new jar to a live server.
+
+> [!IMPORTANT]
+> Back up before the first startup with a new jar. Config regeneration and schema migration are safer when rollback is simple.
 
 ## Before Updating
 
@@ -14,7 +17,7 @@ Use this whenever you update RuinedWardrobe, change storage, or publish a new ja
 ## First Startup
 
 1. Start the server.
-2. Watch console for config backup/regeneration messages.
+2. Watch console for config backup or regeneration messages.
 3. Run `/wardrobe doctor`.
 4. Open `/wardrobe` as a normal player.
 5. Save a set.
@@ -32,7 +35,7 @@ After a version bump:
 
 1. Open the regenerated config.
 2. Reapply only the changes you still need.
-3. Do not paste an old config over the new one.
+3. Do not paste an old config over the new file.
 4. Compare old backups carefully.
 5. Restart or reload after edits.
 
@@ -52,7 +55,7 @@ For MySQL to SQLite:
 /wardrobe migrate sqlite
 ```
 
-Do not skip the dry-run. If the target already contains wardrobe data, the real migration stops unless you add `--force`, and a target backup is written before overwrite.
+If the target already contains wardrobe data, the real migration stops unless you add `--force`. When `--force` is used, target data is backed up before overwrite.
 
 ## Rollback
 
@@ -64,10 +67,11 @@ If the update is bad:
 4. Restore the external database backup if used.
 5. Start the server.
 6. Run `/wardrobe doctor`.
+7. Test one player before reopening.
 
 ## Release Smoke Test
 
-For local source builds:
+For local source builds on Windows:
 
 ```powershell
 .\gradlew.bat clean build
@@ -87,3 +91,10 @@ Check these before sending a jar to anyone:
 - The jar contains `META-INF/LICENSE.txt`.
 - The server starts without config errors.
 - `/wardrobe doctor` works.
+- A normal player can save, equip, unequip, and switch sets.
+
+## Related Pages
+
+- [Quick Start](Quick-Start.md)
+- [Storage, Migration, And Backups](Storage-Migration-And-Backups.md)
+- [Audit Logs And Troubleshooting](Audit-Logs-And-Troubleshooting.md)

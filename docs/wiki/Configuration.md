@@ -1,26 +1,41 @@
 # Configuration
 
-Main config:
+Main file:
 
 ```text
 plugins/RuinedWardrobe/config.yml
 ```
 
-RuinedWardrobe backs up and regenerates config files when their `config-version` no longer matches the bundled template. That protects startup from old or missing keys after updates.
+RuinedWardrobe backs up and regenerates config files when their `config-version` does not match the bundled template. That keeps older configs from silently missing new safety settings.
 
-## Quick Decision Table
+> [!NOTE]
+> `gui.yml` controls the inventory layout. `lang/en_US.yml` controls visible text. `config.yml` controls behavior, storage, integrations, and performance.
 
-| Section | Usually change? | Notes |
+## Version Guard
+
+| File | Current schema |
+| --- | --- |
+| `config.yml` | `6` |
+| `gui.yml` | `2` |
+
+When a schema changes, copy your old custom values into the new generated file instead of pasting the old file over the new one.
+
+## Safe First Pass
+
+| Section | Usually change? | First decision |
 | --- | --- | --- |
-| `language` | Sometimes | Pick the active file from `lang/`. |
-| `messages` | Rarely | `BOTH` is the easiest mode for mixed legacy and MiniMessage text. |
-| `wardrobe` | Yes | Slot count, pages, and cooldown live here. |
-| `death` | Maybe | Decide vanilla loss or protected wardrobe behavior. |
-| `storage` | Yes | SQLite for one server, MySQL for networks. |
-| `performance` | Only when needed | Defaults are meant to stay stable under normal load. |
-| `audit` | Usually no | Keep enabled unless you have a strong reason. |
-| `restrictions` | Server-specific | World, gamemode, combat, and PlaceholderAPI rules. |
-| `anti-dupe` | Server-specific | Strict container lock is powerful but changes normal player flow. |
+| `language` | Sometimes | Pick the active language file. |
+| `messages` | Rarely | Keep `BOTH` unless you want only legacy or only MiniMessage parsing. |
+| `wardrobe` | Yes | Set baseline slots, page count, and equip cooldown. |
+| `death` | Server-specific | Decide vanilla death loss or protected wardrobe sets. |
+| `storage` | Yes | SQLite for one server, MySQL/MariaDB for networks. |
+| `performance` | Only under load | Keep defaults until `/wardrobe doctor` shows pressure. |
+| `audit` | Usually no | Keep enabled for support and item investigations. |
+| `restrictions` | Server-specific | Add world, gamemode, combat, or PlaceholderAPI blocks. |
+| `integrations` | Server-specific | Enable only hooks that exist on the server. |
+| `anti-dupe` | Server-specific | Test strict container lock before production use. |
+| `metrics` | Optional | Enable only after setting a bStats plugin id. |
+| `debug` | Temporary | Use for troubleshooting, then turn it off. |
 
 ## Slots And Pages
 
@@ -38,7 +53,7 @@ Effective slot count:
 min(max-slots-cap, max(default-slots, highest ruinedwardrobe.slots.<amount>) + admin bonus slots)
 ```
 
-Use `default-slots` for your baseline. Use `ruinedwardrobe.slots.<amount>` permissions for ranks. Use `/wardrobe admin setslots <player> <amount>` for one-off support adjustments.
+Use `default-slots` for the baseline. Use `ruinedwardrobe.slots.<amount>` for ranks. Use `/wardrobe admin setslots <player> <amount>` for one-off support adjustments.
 
 ## Death Behavior
 
@@ -50,7 +65,7 @@ death:
 | Value | Behavior |
 | --- | --- |
 | `false` | Vanilla-style loss when keepInventory is off. Equipped wardrobe armor drops and is removed from the saved slot. |
-| `true` | Wardrobe armor is removed from death drops, the saved slot stays intact, and selected state is cleared for re-equip after respawn. |
+| `true` | Wardrobe armor is removed from drops, the saved slot stays intact, and selected state is cleared for re-equip after respawn. |
 
 Minecraft's `keepInventory` gamerule wins either way. When keepInventory is true, equipped armor is left alone.
 
@@ -61,7 +76,7 @@ storage:
   type: SQLITE
 ```
 
-Use SQLite when the data belongs to one server:
+SQLite:
 
 ```yaml
 storage:
@@ -69,7 +84,7 @@ storage:
     file: data/wardrobe.db
 ```
 
-Use MySQL/MariaDB when more than one server needs the same wardrobe data:
+MySQL/MariaDB:
 
 ```yaml
 storage:
@@ -82,7 +97,7 @@ storage:
     params: useUnicode=true&characterEncoding=utf8&useSSL=false
 ```
 
-Pool settings:
+Connection pool:
 
 ```yaml
 storage:
@@ -92,7 +107,7 @@ storage:
     connection-timeout-ms: 10000
 ```
 
-Keep DB worker count and pool size close. More workers than connections usually adds waiting instead of speed.
+Keep DB worker count and pool size close. More workers than connections usually adds waiting instead of throughput.
 
 ## Performance
 
@@ -105,7 +120,7 @@ performance:
     expire-after-seconds: 600
 ```
 
-Session:
+Session behavior:
 
 ```yaml
 performance:
@@ -114,7 +129,7 @@ performance:
     touch-player-row-on-join: false
 ```
 
-Keep both session values false on large servers unless you need PlaceholderAPI or another tool to see player data right after login.
+Keep both values false on large servers unless another tool needs data available immediately after join.
 
 MySQL sync:
 
@@ -136,7 +151,7 @@ performance:
     shutdown-flush-timeout-seconds: 10
 ```
 
-DB queue:
+DB queue and retries:
 
 ```yaml
 performance:
@@ -168,13 +183,13 @@ audit:
   include-item-summaries: true
 ```
 
-Keep audit enabled. It writes to:
+Audit logs write here:
 
 ```text
 plugins/RuinedWardrobe/logs/wardrobe-audit-YYYY-MM-DD.log
 ```
 
-Turn on `log-successful-syncs` only while investigating armor sync behavior. It can get noisy.
+Keep audit enabled. Turn on `log-successful-syncs` only while investigating armor sync behavior because it can get noisy.
 
 ## Restrictions
 
@@ -187,9 +202,9 @@ restrictions:
     - SPECTATOR
 ```
 
-Allow-list wins before blocked-worlds. If `allowed-worlds` is not empty, only those worlds can use equip.
+If `allowed-worlds` is not empty, only those worlds can use equip. That allow-list runs before `blocked-worlds`.
 
-Combat checks use the detected combat provider when enabled:
+Combat check:
 
 ```yaml
 restrictions:
@@ -197,7 +212,7 @@ restrictions:
     enabled: true
 ```
 
-Placeholder rules require PlaceholderAPI and `integrations.placeholderapi.enabled: true`:
+PlaceholderAPI rules:
 
 ```yaml
 restrictions:
@@ -208,6 +223,8 @@ restrictions:
         - spawn
       reason-key: restriction.placeholder
 ```
+
+Placeholder rules require PlaceholderAPI and `integrations.placeholderapi.enabled: true`.
 
 ## Integrations
 
@@ -221,7 +238,7 @@ integrations:
     enabled: true
 ```
 
-These are discovery toggles. The optional plugin still has to be installed and enabled on the server.
+These toggles allow hook discovery. The matching plugin still has to be installed and enabled.
 
 ## GUI Feedback
 
@@ -238,7 +255,7 @@ gui:
     click-delay-ticks: 2
 ```
 
-The actual inventory layout is in `gui.yml`, not this section.
+The inventory layout itself lives in `gui.yml`.
 
 ## Anti-Dupe
 
@@ -247,4 +264,23 @@ anti-dupe:
   strict-container-lock: false
 ```
 
-When true, players wearing wardrobe-bound armor cannot interact with non-player containers. Test this before using it on a live economy server because it intentionally changes how players can interact while wearing wardrobe sets.
+When true, players wearing wardrobe-bound armor cannot interact with non-player containers. Test this before using it on a live economy server because it intentionally changes normal player flow.
+
+## Metrics And Debug
+
+```yaml
+metrics:
+  enabled: false
+  plugin-id: 0
+
+debug:
+  enabled: false
+```
+
+Enable debug only for short troubleshooting windows. It is not meant to stay on in normal production.
+
+## Related Pages
+
+- [Storage, Migration, And Backups](Storage-Migration-And-Backups.md)
+- [Permissions And Commands](Permissions-And-Commands.md)
+- [GUI And Language Customization](GUI-And-Language-Customization.md)

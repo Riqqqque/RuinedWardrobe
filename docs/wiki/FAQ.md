@@ -16,6 +16,10 @@ The project targets Paper API `26.1.1`.
 
 Use SQLite for one server. Use MySQL or MariaDB when multiple servers need shared wardrobe data.
 
+## How many slots do players get by default?
+
+The bundled config starts at `wardrobe.default-slots: 3`. Give ranks slot tier nodes such as `ruinedwardrobe.slots.6` or `ruinedwardrobe.slots.9` to expand access.
+
 ## Why are some slots locked?
 
 The player's effective slot limit is lower than that slot number. Check `wardrobe.default-slots`, `wardrobe.max-slots-cap`, `ruinedwardrobe.slots.<amount>`, and admin bonus slots.
@@ -30,11 +34,15 @@ No. Equipped wardrobe armor is bound while worn and protected from normal moveme
 
 ## What does strict container lock do?
 
-When `anti-dupe.strict-container-lock` is true, players wearing wardrobe-bound armor cannot interact with non-player containers. It is stricter than most servers need, but useful for high-risk economies.
+When `anti-dupe.strict-container-lock` is true, players wearing wardrobe-bound armor cannot interact with non-player containers. It is stricter than most servers need, but useful for high-risk economies after testing.
 
 ## Why do placeholders return empty?
 
 PlaceholderAPI values come from the in-memory profile cache. If the player profile has not loaded yet, the placeholder returns an empty string. Opening `/wardrobe` loads it, or you can enable join preload.
+
+## Why did migration stop because the target has data?
+
+RuinedWardrobe refuses to overwrite non-empty target storage by default. Confirm the target can be replaced, then rerun the migration with `--force`. A target backup is written before overwrite.
 
 ## Can I sell ranks that give more wardrobe slots?
 
@@ -53,3 +61,9 @@ Search for the player's name or UUID around the reported time.
 ## What should I send with a bug report?
 
 Send the audit log for the timestamp, server console around the same time, `config.yml`, plugin version, Paper/Folia build, Java version, and the exact player action sequence.
+
+## Related Pages
+
+- [Quick Start](Quick-Start.md)
+- [Configuration](Configuration.md)
+- [Audit Logs And Troubleshooting](Audit-Logs-And-Troubleshooting.md)

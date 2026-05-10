@@ -52,3 +52,8 @@ That payment is for setup labor, not for selling RuinedWardrobe. Do not charge a
 ## Why It Is Not MIT
 
 MIT would allow resale of the plugin itself. This project is meant to stay free for server owners while blocking people from selling the jar, source, forks, builds, or update access.
+
+## Related Pages
+
+- [Home](Home.md)
+- [FAQ](FAQ.md)

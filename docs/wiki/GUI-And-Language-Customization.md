@@ -1,11 +1,11 @@
 # GUI And Language Customization
 
-RuinedWardrobe separates layout from text.
+RuinedWardrobe keeps layout and text separate so you can change the menu without touching code.
 
-| File | Purpose |
+| File | Controls |
 | --- | --- |
-| `plugins/RuinedWardrobe/gui.yml` | Inventory rows, columns, buttons, navigation slots, item templates. |
-| `plugins/RuinedWardrobe/lang/en_US.yml` | Titles, names, lore, command messages, errors, and diagnostics text. |
+| `plugins/RuinedWardrobe/gui.yml` | Inventory rows, armor cells, equip buttons, navigation, filler items, templates. |
+| `plugins/RuinedWardrobe/lang/en_US.yml` | Titles, item names, lore, command messages, errors, and diagnostics text. |
 
 Reload config-only changes with:
 
@@ -13,9 +13,12 @@ Reload config-only changes with:
 /wardrobe reload
 ```
 
-## GUI Layout
+> [!IMPORTANT]
+> After layout changes, test with a normal player so locked slots, permissions, page buttons, and equip buttons all render correctly.
 
-Default layout is a six-row chest-style menu.
+## Layout Model
+
+The default GUI is a six-row chest-style inventory.
 
 ```yaml
 layout:
@@ -32,9 +35,9 @@ layout:
     - 8
 ```
 
-`slot-display-indices` are column indexes from `0` to `8`. The default shows nine wardrobe sets per page.
+`slot-display-indices` are column indexes from `0` to `8`. The default layout shows nine wardrobe sets per page.
 
-Armor display rows:
+## Armor Cells
 
 ```yaml
 armor-layout:
@@ -44,7 +47,9 @@ armor-layout:
   boots-row: 3
 ```
 
-Equip buttons:
+Keep armor rows aligned with the same columns used by `slot-display-indices`.
+
+## Equip Buttons
 
 ```yaml
 equip-buttons:
@@ -61,7 +66,9 @@ equip-buttons:
     - 44
 ```
 
-Navigation:
+The number of equip button slots should match the number of displayed wardrobe columns.
+
+## Navigation
 
 ```yaml
 navigation:
@@ -70,9 +77,11 @@ navigation:
   next-page-slot: 53
 ```
 
+Keep navigation away from armor and equip cells so clicks stay predictable.
+
 ## Item Templates
 
-Templates control the material, custom model data, glow, name key, and lore keys:
+Templates define material, CustomModelData, glow, name key, and lore keys:
 
 ```yaml
 templates:
@@ -85,8 +94,6 @@ templates:
       - gui.slot-saved-lore
 ```
 
-Useful templates:
-
 | Template | Used for |
 | --- | --- |
 | `empty-slot` | Empty armor cells. |
@@ -94,7 +101,7 @@ Useful templates:
 | `locked-slot` | Slots above the player's slot cap. |
 | `cooldown-slot` | Equip cooldown feedback. |
 | `equip-button-unequipped` | Equip button for inactive sets. |
-| `equip-button-equipped` | Unequip button for active set. |
+| `equip-button-equipped` | Unequip button for the active set. |
 | `control-filler` | Cosmetic filler panes. |
 
 ## Language Files
@@ -112,7 +119,7 @@ language:
   active: en_US
 ```
 
-Missing keys fall back to `lang/en_US.yml`.
+Missing keys fall back to bundled `lang/en_US.yml`.
 
 ## Message Formatting
 
@@ -127,7 +134,7 @@ messages:
 | `MINIMESSAGE` | MiniMessage tags such as `<green>`. |
 | `BOTH` | Mixed support. Best for most servers. |
 
-## Built-In Placeholders In Messages
+## Built-In Message Placeholders
 
 Common internal placeholders:
 
@@ -148,13 +155,19 @@ Common internal placeholders:
 {message}
 ```
 
-Only use placeholders that the specific message already supports.
+Only use placeholders supported by that specific message key.
 
-## Design Tips
+## Design Checklist
 
-- Keep `layout.rows: 6` unless you are changing the whole layout.
+- Keep `layout.rows: 6` unless you are redesigning the whole inventory.
 - Keep equip button count aligned with `slot-display-indices`.
-- Keep navigation buttons away from armor columns.
-- Use short names and short lore. Long lore gets noisy fast in a chest GUI.
-- Test with a normal player account so locked slots and permissions are visible.
-- If a resource pack uses CustomModelData, set `model-data` on templates instead of changing code.
+- Keep navigation buttons out of armor columns.
+- Keep names and lore short enough for a chest GUI.
+- Use `model-data` for resource pack styling instead of code edits.
+- Test locked slots, cooldown slots, equipped slots, and empty slots.
+
+## Related Pages
+
+- [Configuration](Configuration.md)
+- [Permissions And Commands](Permissions-And-Commands.md)
+- [Audit Logs And Troubleshooting](Audit-Logs-And-Troubleshooting.md)
