@@ -1,1 +1,1 @@
-RuinedWardrobe by Rique. Free for server use, including monetized servers. The plugin itself cannot be sold.
+RuinedWardrobe by Rique. Free for server use, including monetized servers. Do not sell the plugin, source, forks, builds, or update access.

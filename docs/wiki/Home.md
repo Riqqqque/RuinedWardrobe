@@ -1,61 +1,78 @@
 # RuinedWardrobe Wiki
 
-RuinedWardrobe is a Paper and Folia wardrobe plugin for servers that want armor sets to feel polished for players and boringly safe for staff. Players save armor into wardrobe slots, equip sets from a GUI, and the plugin handles storage, anti-dupe behavior, death handling, diagnostics, and migration safety around it.
+RuinedWardrobe is a Paper and Folia wardrobe plugin for servers that want armor cosmetics to feel clean for players and dependable for staff. Players save armor sets into GUI slots, equip or unequip them with one click, and the plugin handles persistence, bound armor protection, diagnostics, audit logs, and storage migration around it.
 
-This wiki is written for server owners first. It focuses on what to install, what to change, what to leave alone, and where to look when a player says something went wrong.
+This wiki is written for server owners, admins, and support staff. It favors operational decisions over code trivia: what to install, what to configure, what to test, and where to look when something goes wrong.
 
-## Start Here
+> [!TIP]
+> New install? Start with [Quick Start](Quick-Start.md), then set up [Permissions And Commands](Permissions-And-Commands.md), then review [Configuration](Configuration.md).
 
-| If you need to... | Open this |
+## At A Glance
+
+| Area | Details |
 | --- | --- |
-| Install it for the first time | [Quick Start](Quick-Start.md) |
-| Set up ranks and staff permissions | [Permissions And Commands](Permissions-And-Commands.md) |
+| Server platform | Paper or Folia |
+| Java | `25` |
+| Target API | Paper `26.1.1` |
+| Default storage | SQLite at `plugins/RuinedWardrobe/data/wardrobe.db` |
+| Network storage | MySQL or MariaDB |
+| Main commands | `/wardrobe`, `/rw` |
+| First permission | `ruinedwardrobe.use` |
+| Default unlocked slots | `3` |
+| Author | Rique |
+
+## Choose Your Path
+
+| Goal | Best page |
+| --- | --- |
+| Install the jar and run the first test | [Quick Start](Quick-Start.md) |
+| Build ranks, slot tiers, and staff access | [Permissions And Commands](Permissions-And-Commands.md) |
 | Tune storage, death behavior, restrictions, and performance | [Configuration](Configuration.md) |
-| Change the menu, item names, lore, and messages | [GUI And Language Customization](GUI-And-Language-Customization.md) |
-| Use PlaceholderAPI, Vault, or combat hooks | [Placeholders And Integrations](Placeholders-And-Integrations.md) |
-| Move SQLite data to MySQL or protect backups | [Storage, Migration, And Backups](Storage-Migration-And-Backups.md) |
-| Investigate missing armor, dupe reports, or storage errors | [Audit Logs And Troubleshooting](Audit-Logs-And-Troubleshooting.md) |
-| Update the jar safely | [Upgrade And Release Checklist](Upgrade-And-Release-Checklist.md) |
-| Check what the license allows | [License And Server Monetization](License-And-Server-Monetization.md) |
-| Answer common questions fast | [FAQ](FAQ.md) |
+| Redesign the inventory GUI or language text | [GUI And Language Customization](GUI-And-Language-Customization.md) |
+| Connect PlaceholderAPI, Vault, or combat checks | [Placeholders And Integrations](Placeholders-And-Integrations.md) |
+| Move SQLite data to MySQL or restore backups | [Storage, Migration, And Backups](Storage-Migration-And-Backups.md) |
+| Investigate missing armor, dupe reports, or DB errors | [Audit Logs And Troubleshooting](Audit-Logs-And-Troubleshooting.md) |
+| Update safely on a live server | [Upgrade And Release Checklist](Upgrade-And-Release-Checklist.md) |
+| Check license and monetization rules | [License And Server Monetization](License-And-Server-Monetization.md) |
+| Get quick answers | [FAQ](FAQ.md) |
 
-## What Players See
+## Player Experience
 
-- `/wardrobe` or `/rw` opens a page-based armor wardrobe.
-- Each wardrobe column stores one armor set.
-- Players drag armor into slots, click the set button to equip, and click it again to unequip.
-- Locked slots show when a player does not have enough slot permission.
-- Equipped wardrobe armor is protected while worn.
-
-## What Staff Get
-
-| Feature | Why it matters |
+| Player action | What happens |
 | --- | --- |
-| SQLite by default | Works for a single server without extra setup. |
-| MySQL/MariaDB support | Lets networks share wardrobe data across servers. |
-| Bound armor protection | Blocks common move, drop, swap, dispense, and container abuse paths. |
-| Configurable death behavior | Choose vanilla-style item loss or protected wardrobe sets. |
-| Audit logs | Trace save, equip, edit, death, sanitizer, sync, and storage events. |
-| `/wardrobe doctor` | Check storage, cache, queue, sync, and DB probe status in game. |
-| Snapshot migration | Dry-run and real migrations verify copied data before reporting success. |
-| Config version guards | Old config files are backed up and replaced when templates change. |
+| Open `/wardrobe` or `/rw` | A page-based armor wardrobe opens. |
+| Drag armor into a column | That column becomes a saved set. |
+| Click a set button | The saved armor equips and becomes bound to the player while worn. |
+| Click the active set button | The wardrobe armor unequips cleanly. |
+| Open locked slots | Locked slots show when the player lacks the required slot tier. |
 
-## How Equip Works
+## Staff Toolkit
+
+| Tool | Why it matters |
+| --- | --- |
+| `/wardrobe doctor` | Checks storage, cache, DB queue, sync, and a real DB probe from in game. |
+| Audit logs | Trace save, equip, rename, delete, death, sanitizer, sync, and error events. |
+| Bound armor protection | Blocks common move, drop, swap, dispense, and container abuse paths. |
+| Config version guards | Old configs are backed up and regenerated when bundled templates change. |
+| Snapshot migration | Dry-runs, backups, target overwrite protection, and digest verification. |
+| Staff admin commands | Open player wardrobes and adjust bonus slots without changing rank nodes. |
+
+## Equip Flow
 
 ```mermaid
 flowchart LR
-    A["Player clicks equip"] --> B["Check slot access"]
+    A["Player clicks equip"] --> B["Check permission and slot access"]
     B --> C["Check cooldown and restrictions"]
     C --> D["Load saved set"]
-    D --> E["Clear current wardrobe armor"]
-    E --> F["Bind and equip selected set"]
+    D --> E["Clear previous wardrobe armor"]
+    E --> F["Bind and equip set"]
     F --> G["Save selected state"]
-    G --> H["Write audit line"]
+    G --> H["Write audit entry"]
 ```
 
 ## Default Files
 
-After the first startup, expect this layout:
+After first startup, the plugin folder should look like this:
 
 ```text
 plugins/RuinedWardrobe/
@@ -67,18 +84,36 @@ plugins/RuinedWardrobe/
   logs/wardrobe-audit-YYYY-MM-DD.log
 ```
 
-## Best Defaults
+## Recommended Defaults
 
-| Server type | Recommended setup |
+| Server type | Setup |
 | --- | --- |
 | Small single server | Keep `storage.type: SQLITE`, leave audit enabled, use rank slot permissions. |
-| Large single server | Keep SQLite only if storage is local and fast; lower join-time DB work. |
-| Network | Use `storage.type: MYSQL`, keep sync polling on, and test migration with `--dry-run`. |
-| High-risk economy server | Consider `anti-dupe.strict-container-lock: true` after testing player flow. |
+| Large single server | Keep SQLite only on fast local storage, and keep join-time DB work off unless needed. |
+| Multi-server network | Use `storage.type: MYSQL`, keep sync polling enabled, and test migration with `--dry-run`. |
+| Economy-focused server | Test `anti-dupe.strict-container-lock: true` before using it live. |
 | Heavy support workload | Keep `audit.include-item-summaries: true` and use `/wardrobe doctor` during reports. |
 
-## The Three Rules
+## Production Rules
 
-1. Back up `plugins/RuinedWardrobe` before updates or migrations.
-2. Run `/wardrobe migrate mysql --dry-run` before a real migration.
-3. Use the audit log first when investigating item issues.
+1. Back up `plugins/RuinedWardrobe` before updates, migrations, or layout changes.
+2. Run `/wardrobe migrate <target> --dry-run` before every real migration.
+3. Keep audit logs enabled unless you have a measured reason to turn them off.
+4. Test with a normal player account, not only an operator account.
+5. Use the wiki checklists before opening a new build to players.
+
+## Page Map
+
+```mermaid
+flowchart TD
+    Home["Home"] --> Quick["Quick Start"]
+    Home --> Perms["Permissions And Commands"]
+    Home --> Config["Configuration"]
+    Config --> GUI["GUI And Language Customization"]
+    Config --> Integrations["Placeholders And Integrations"]
+    Config --> Storage["Storage, Migration, And Backups"]
+    Storage --> Upgrade["Upgrade And Release Checklist"]
+    Storage --> Trouble["Audit Logs And Troubleshooting"]
+    Trouble --> FAQ["FAQ"]
+    Home --> License["License And Server Monetization"]
+```

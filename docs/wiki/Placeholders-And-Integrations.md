@@ -1,6 +1,6 @@
 # Placeholders And Integrations
 
-RuinedWardrobe can work with PlaceholderAPI, Vault, and combat providers. All integrations are optional.
+RuinedWardrobe can discover PlaceholderAPI, Vault, and supported combat providers. These integrations are optional; the plugin works without them.
 
 ## Integration Toggles
 
@@ -14,7 +14,7 @@ integrations:
     enabled: true
 ```
 
-These toggles allow discovery. The matching plugin still needs to be installed and enabled on the server.
+These toggles allow hook discovery. The matching plugin still needs to be installed and enabled on the server.
 
 ## PlaceholderAPI Expansion
 
@@ -40,11 +40,11 @@ Example:
 %ruinedwardrobe_set_name_3%
 ```
 
-## Placeholder Cache Note
+## Placeholder Cache Behavior
 
-Placeholders resolve from the in-memory profile cache. If a profile has not loaded yet, placeholders return an empty string.
+Placeholders resolve from the in-memory profile cache. If a profile has not loaded yet, placeholders can return an empty string.
 
-If you need placeholders to be warm right after login, enable:
+If you need placeholder values warm right after login:
 
 ```yaml
 performance:
@@ -52,13 +52,11 @@ performance:
     preload-profile-on-join: true
 ```
 
-That makes joins do more DB work. Keep it false on large servers unless immediate placeholders matter.
+That makes joins do more DB work. Keep it false on large servers unless immediate placeholder output matters.
 
 ## Placeholder Restrictions
 
-PlaceholderAPI can also block equip based on another plugin's placeholder output.
-
-Example:
+PlaceholderAPI can block equip based on another plugin's placeholder output.
 
 ```yaml
 restrictions:
@@ -72,9 +70,7 @@ restrictions:
 
 When the placeholder output matches a disallowed value, equip is denied with the configured language key.
 
-## Combat Integration
-
-Combat checks are controlled here:
+## Combat Checks
 
 ```yaml
 restrictions:
@@ -90,13 +86,19 @@ Players with `ruinedwardrobe.bypass.combat` skip combat restriction checks.
 
 ## Vault
 
-Vault discovery is available and can be left enabled. Current configuration does not require an economy setup for normal wardrobe use.
+Vault discovery can be left enabled. Normal wardrobe use does not require an economy setup.
 
 ## Troubleshooting Integrations
 
 | Problem | Check |
 | --- | --- |
 | Placeholder returns empty | Player profile may not be cached yet. Open `/wardrobe` once or enable preload. |
-| Placeholder rule never blocks | Make sure PlaceholderAPI is installed and the placeholder itself returns the expected value. |
+| Placeholder rule never blocks | Confirm PlaceholderAPI is installed and the placeholder itself returns the expected value. |
 | Combat restriction never blocks | Confirm the combat plugin is installed, enabled, and supported by the detected provider. |
 | Messages show raw placeholder text | Confirm PlaceholderAPI is installed and `integrations.placeholderapi.enabled` is true. |
+
+## Related Pages
+
+- [Configuration](Configuration.md)
+- [Permissions And Commands](Permissions-And-Commands.md)
+- [FAQ](FAQ.md)

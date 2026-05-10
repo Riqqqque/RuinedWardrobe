@@ -1,39 +1,43 @@
 # Quick Start
 
-This page gets RuinedWardrobe running without forcing you through every advanced option on day one.
+Use this page when you want RuinedWardrobe installed, tested, and ready for a first group of players without reading every advanced option first.
+
+> [!IMPORTANT]
+> Test with a normal player account before opening the server. Operator accounts can hide permission and locked-slot problems.
 
 ## Requirements
 
 | Requirement | Value |
 | --- | --- |
-| Server | Paper or Folia |
+| Server software | Paper or Folia |
 | Target API | `26.1.1` |
 | Java | `25` |
-| Permission plugin | Recommended |
-| Optional plugins | PlaceholderAPI, Vault, CombatLogX |
+| Permission plugin | Strongly recommended |
+| Optional hooks | PlaceholderAPI, Vault, CombatLogX |
 
-## Install
+## Install Checklist
 
 1. Put `RuinedWardrobe-1.0.0.jar` in the server `plugins` folder.
-2. Start the server once so config files are created.
+2. Start the server once so RuinedWardrobe creates its files.
 3. Stop the server.
 4. Open `plugins/RuinedWardrobe/config.yml`.
-5. Check storage, slot caps, death behavior, restrictions, and audit settings.
+5. Review storage, slots, death behavior, restrictions, audit, and anti-dupe settings.
 6. Start the server again.
-7. Give players `ruinedwardrobe.use` and one slot tier such as `ruinedwardrobe.slots.3`.
-8. Test with `/wardrobe`.
+7. Give players `ruinedwardrobe.use`.
+8. Give players one slot tier, such as `ruinedwardrobe.slots.3`.
+9. Run `/wardrobe` as a normal player.
 
 ## First Player Test
 
-Use a normal player account, not only an operator account.
-
-1. Put armor in the player inventory.
-2. Run `/wardrobe`.
-3. Drag armor into one wardrobe column.
-4. Click that column's equip button.
-5. Click the same button again to unequip.
-6. Save another set and switch between both sets.
-7. Confirm locked slots show for slots above the player's permission tier.
+| Step | Expected result |
+| --- | --- |
+| Put armor in the player inventory | The armor can be moved into wardrobe armor cells. |
+| Run `/wardrobe` | The wardrobe GUI opens. |
+| Save armor into one wardrobe column | The column shows the saved set. |
+| Click that column's equip button | The set equips and becomes the active wardrobe set. |
+| Click the active equip button again | The set unequips cleanly. |
+| Save a second set and switch between sets | Only one wardrobe set stays active at a time. |
+| Check a locked slot | Locked slots appear above the player's slot tier. |
 
 ## First Staff Test
 
@@ -47,17 +51,18 @@ Run these after the player test:
 /wardrobe admin clearslots <player>
 ```
 
-`/wardrobe doctor` should show storage ready, basic cache stats, DB queue depth, sync timing, and whether the DB probe succeeded.
+`/wardrobe doctor` should report storage status, cache stats, DB queue depth, sync timing, and whether a real DB probe succeeded.
 
 ## First Config Decisions
 
-| Question | Safe first choice |
+| Decision | Safe first choice |
 | --- | --- |
-| One server or network? | Use SQLite for one server, MySQL for a network. |
-| Keep wardrobe armor after death? | Leave `death.keep-wardrobe-on-death: false` unless you want protected sets. |
-| Need region or combat restrictions? | Keep restrictions enabled and configure only the rules you use. |
-| Need strict container blocking? | Leave `anti-dupe.strict-container-lock: false` unless your economy needs maximum lock-down. |
-| Need noisy sync logs? | Leave `audit.log-successful-syncs: false`. |
+| One server or a network? | SQLite for one server, MySQL/MariaDB for a network. |
+| How many default slots? | Keep `wardrobe.default-slots: 3`, then expand with rank permissions. |
+| Should wardrobe armor survive death? | Keep `death.keep-wardrobe-on-death: false` unless you want protected sets. |
+| Need region, gamemode, or combat blocks? | Leave restrictions enabled and configure only the rules you use. |
+| Need strict container blocking? | Leave `anti-dupe.strict-container-lock: false` until tested. |
+| Need detailed sync noise? | Keep `audit.log-successful-syncs: false`. |
 
 ## Build From Source
 
@@ -79,12 +84,22 @@ Jar output:
 build/libs/RuinedWardrobe-1.0.0.jar
 ```
 
-The jar is shaded with SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.
+The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.
 
 ## Before Opening To Players
 
 - Back up the full `plugins/RuinedWardrobe` folder.
-- Check that player ranks have exactly one intended `ruinedwardrobe.slots.<amount>` tier.
-- Test save, equip, unequip, switch, delete, death, and reload.
+- Confirm every rank has the intended `ruinedwardrobe.slots.<amount>` tier.
+- Test save, equip, unequip, switch, delete, death, reload, and restart.
+- Run `/wardrobe doctor`.
 - Check `plugins/RuinedWardrobe/logs/wardrobe-audit-YYYY-MM-DD.log`.
 - Keep the first backup until real players have used the plugin for a while.
+
+## Next Pages
+
+| Need | Page |
+| --- | --- |
+| Rank and staff setup | [Permissions And Commands](Permissions-And-Commands.md) |
+| Storage and performance tuning | [Configuration](Configuration.md) |
+| GUI and messages | [GUI And Language Customization](GUI-And-Language-Customization.md) |
+| Migration or backups | [Storage, Migration, And Backups](Storage-Migration-And-Backups.md) |
