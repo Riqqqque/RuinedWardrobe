@@ -20,7 +20,7 @@ This page gets RuinedWardrobe running without forcing you through every advanced
 4. Open `plugins/RuinedWardrobe/config.yml`.
 5. Check storage, slot caps, death behavior, restrictions, and audit settings.
 6. Start the server again.
-7. Give players `ruinedwardrobe.use` and one slot tier such as `ruinedwardrobe.slots.8`.
+7. Give players `ruinedwardrobe.use` and one slot tier such as `ruinedwardrobe.slots.3`.
 8. Test with `/wardrobe`.
 
 ## First Player Test

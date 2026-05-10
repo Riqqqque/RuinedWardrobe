@@ -13,7 +13,7 @@
 # Config schema version used by RuinedWardrobe for compatibility checks.
 # If this value does not match the plugin's expected version, the plugin will back up this file,
 # replace it with the latest bundled template, and continue loading with the new version.
-config-version: 5
+config-version: 6
 
 language:
   # Global language file name loaded from /plugins/RuinedWardrobe/lang/<active>.yml
@@ -32,7 +32,7 @@ wardrobe:
   # Base number of unlocked slots for players with no rank slot permissions.
   # Final slot amount is computed from:
   # max( default-slots, highest ruinedwardrobe.slots.<n> permission ) + admin bonus slots
-  default-slots: 8
+  default-slots: 3
 
   # Hard upper limit to protect UI, database size, and misuse.
   # Even with permissions/bonuses, players cannot exceed this cap.

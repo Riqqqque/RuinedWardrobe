@@ -5,12 +5,14 @@ import dev.rique.ruinedwardrobe.api.model.WardrobeSet;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.storage.WardrobeRepository;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.PluginLogger;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +23,10 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -50,6 +54,31 @@ class WardrobeArmorSyncServiceTest {
         when(bindingService.getActiveSlot(playerId)).thenReturn(-1);
         when(bindingService.hasAnyBoundArmor(player)).thenReturn(true);
         assertTrue(service.hasTrackedArmor(player));
+    }
+
+    @Test
+    void shutdownFlushDoesNotScheduleBackOntoGlobalThreadForIdlePlayers() {
+        JavaPlugin plugin = mock(JavaPlugin.class);
+        SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeServiceImpl wardrobeService = mock(WardrobeServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        WardrobeArmorSyncService service = createService(plugin, schedulerAdapter, repository, wardrobeService, bindingService);
+
+        UUID playerId = UUID.randomUUID();
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(bindingService.getActiveSlot(playerId)).thenReturn(-1);
+        when(bindingService.hasAnyBoundArmor(player)).thenReturn(false);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of(player));
+
+            service.flushOnlinePlayers().join();
+
+            verify(schedulerAdapter, never()).runGlobal(any(Runnable.class));
+            verifyNoInteractions(repository, wardrobeService);
+        }
     }
 
     @Test

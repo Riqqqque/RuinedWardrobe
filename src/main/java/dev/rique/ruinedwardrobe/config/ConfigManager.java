@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter;
 
 public final class ConfigManager {
 
-    private static final int CONFIG_VERSION = 5;
+    private static final int CONFIG_VERSION = 6;
     private static final int GUI_CONFIG_VERSION = 2;
     private static final DateTimeFormatter BACKUP_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 

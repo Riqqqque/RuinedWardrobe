@@ -37,7 +37,7 @@ Minimum checklist:
 ## Migration Command
 
 ```text
-/wardrobe migrate <sqlite|mysql> [--dry-run]
+/wardrobe migrate <sqlite|mysql> [--dry-run] [--force]
 ```
 
 Dry-run first:
@@ -51,6 +51,8 @@ Then run the real migration:
 ```text
 /wardrobe migrate mysql
 ```
+
+If the target storage already has wardrobe data, RuinedWardrobe stops before overwriting it. After you confirm the target data can be replaced, run the same command with `--force`. A target backup is written before the overwrite.
 
 ## What Migration Does
 

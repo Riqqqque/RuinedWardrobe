@@ -1,14 +1,14 @@
 # Config Reference
 
 ## Version Guards
-- `config.yml` requires `config-version: 5`; `gui.yml` requires `config-version: 2`.
+- `config.yml` requires `config-version: 6`; `gui.yml` requires `config-version: 2`.
 - If version mismatches, RuinedWardrobe backs up the old file and regenerates the latest template automatically.
 - Runtime target is Paper/Folia `26.1.1` on Java `25`.
 
 ## `config.yml` Highlights
 - `language.active`: global active language file in `lang/`.
 - `messages.format-mode`: `LEGACY`, `MINIMESSAGE`, `BOTH`.
-- `wardrobe.default-slots`: base unlocked slots (default `8`).
+- `wardrobe.default-slots`: base unlocked slots (default `3`).
 - `wardrobe.max-pages`: max GUI pages (default `2`).
 - `death.keep-wardrobe-on-death`: optionally prevents equipped wardrobe armor from dropping or being removed from saved slots when keepInventory is off.
 - `storage.type`: `SQLITE` or `MYSQL`.

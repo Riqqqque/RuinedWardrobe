@@ -26,7 +26,7 @@ RuinedWardrobe backs up and regenerates config files when their `config-version`
 
 ```yaml
 wardrobe:
-  default-slots: 8
+  default-slots: 3
   max-slots-cap: 54
   max-pages: 2
   equip-cooldown-seconds: 3
