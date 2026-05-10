@@ -27,10 +27,9 @@ RuinedWardrobe belongs in the same ecosystem as [RuinedCollections](https://gith
 
 ## Current Difference Notes
 
-- RuinedCollections targets Paper `1.21+` and Java `21+`; RuinedWardrobe currently targets Paper API `26.1.1` and Java `25`.
-- RuinedCollections uses Maven and produces `target/RuinedCollections.jar`; RuinedWardrobe uses Gradle and produces `build/libs/RuinedWardrobe-1.0.0.jar`.
+- RuinedCollections targets Paper `1.21+` and Java `21+`; RuinedWardrobe targets Paper API `1.21`, Java `21+`, and Paper/Folia runtime versions `1.21` through `26.1.2`.
+- RuinedCollections uses Maven and produces `target/RuinedCollections.jar`; RuinedWardrobe uses Gradle and produces `build/libs/RuinedWardrobe-1.0.1.jar`.
 - RuinedCollections has export/import workflows; RuinedWardrobe has direct storage migration with dry-run, backup, force, and digest verification.
 - RuinedCollections diagnostics are a rotating `diagnostics.log`; RuinedWardrobe uses `/wardrobe doctor` plus dated wardrobe audit logs.
 
 These differences are fine. Preserve them unless there is a clear reason to converge.
-

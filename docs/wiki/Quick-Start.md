@@ -10,8 +10,9 @@ Use this page when you want RuinedWardrobe installed, tested, and ready for a fi
 | Requirement | Value |
 | --- | --- |
 | Server software | Paper or Folia |
-| Target API | `26.1.1` |
-| Java | `25` |
+| Target API | `1.21` |
+| Runtime support | Paper/Folia `1.21` through `26.1.2` |
+| Java | `21+` |
 | Permission plugin | Strongly recommended |
 | Optional hooks | PlaceholderAPI, Vault, CombatLogX |
 
@@ -82,7 +83,7 @@ On Linux:
 Jar output:
 
 ```text
-build/libs/RuinedWardrobe-1.0.0.jar
+build/libs/RuinedWardrobe-1.0.1.jar
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.
