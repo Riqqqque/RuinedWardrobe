@@ -50,7 +50,7 @@ Jar output when building locally:
 ```
 
 ```text
-build/libs/RuinedWardrobe-1.0.2.jar
+build/libs/RuinedWardrobe-1.0.3.jar
 ```
 
 ## Commands

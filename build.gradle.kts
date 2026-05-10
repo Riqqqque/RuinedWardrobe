@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.rique"
-version = "1.0.2"
+version = "1.0.3"
 val pluginVersion = version.toString()
 
 java {
