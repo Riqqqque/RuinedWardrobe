@@ -4,7 +4,7 @@
 # This file controls behavior, storage, integrations, anti-dupe, and performance.
 # Most servers can run these defaults as-is. The comments explain what to raise or lower
 # when you grow into hundreds or thousands of online players.
-# Built for Paper/Folia 26.1.1 on Java 25.
+# Built for Paper/Folia 1.21 through 26.1.2 on Java 21+.
 # On config version changes, RuinedWardrobe backs up the old file and writes the new template automatically.
 # Storage migrations also write a full snapshot backup before data is copied.
 # Older local schema layouts are imported automatically on startup with a verified backup.

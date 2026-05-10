@@ -6,11 +6,11 @@ Yes. The plugin declares Folia support and uses scheduler adapters for Paper and
 
 ## What Java version should I use?
 
-Java `25`.
+Java `21+`.
 
 ## What Paper API is this built for?
 
-The project targets Paper API `26.1.1`.
+The project targets Paper API `1.21` and supports Paper/Folia `1.21` through `26.1.2`.
 
 ## Should I use SQLite or MySQL?
 

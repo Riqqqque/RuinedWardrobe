@@ -2,8 +2,8 @@
 
 [![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
 [![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
-[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
+[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-1.21--26.1.2-2f3136)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21%2B-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](LICENSE)
 
 RuinedWardrobe is a high-performance Paper/Folia wardrobe plugin built for large Minecraft servers that need a polished armor wardrobe, strict anti-dupe behavior, safe storage, and useful diagnostics when something goes wrong.
@@ -14,8 +14,9 @@ It is free to use on any server, including monetized servers. The source and jar
 
 - Hypixel-style wardrobe GUI with drag/drop armor editing, page navigation, locked slots, and equip/unequip buttons.
 - Full Paper and Folia scheduler support.
-- Target API: `io.papermc.paper:paper-api:26.1.1.build.29-alpha`.
-- Java target: `25`.
+- Target API: `io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT`.
+- Runtime support: Paper/Folia `1.21` through `26.1.2`.
+- Java target: `21+`.
 - Permission-tier slots through `ruinedwardrobe.slots.<amount>` plus admin bonus slots.
 - SQLite by default, optional MySQL/MariaDB for networks.
 - Async database pipeline with queue limits, retries, health metrics, and batch sync.
@@ -49,7 +50,7 @@ Jar output when building locally:
 ```
 
 ```text
-build/libs/RuinedWardrobe-1.0.0.jar
+build/libs/RuinedWardrobe-1.0.1.jar
 ```
 
 ## Commands
@@ -160,7 +161,7 @@ Reference docs:
 
 Requirements:
 
-- JDK 25
+- JDK 21+
 - Gradle wrapper included
 
 Build and test:

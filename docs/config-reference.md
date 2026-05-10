@@ -3,7 +3,7 @@
 ## Version Guards
 - `config.yml` requires `config-version: 6`; `gui.yml` requires `config-version: 2`.
 - If version mismatches, RuinedWardrobe backs up the old file and regenerates the latest template automatically.
-- Runtime target is Paper/Folia `26.1.1` on Java `25`.
+- Runtime target is Paper/Folia `1.21` through `26.1.2` on Java `21+`.
 
 ## `config.yml` Highlights
 - `language.active`: global active language file in `lang/`.

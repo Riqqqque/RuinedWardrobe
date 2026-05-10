@@ -2,8 +2,8 @@
 
 [![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
 [![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
-[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
+[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-1.21--26.1.2-2f3136)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21%2B-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
 
 RuinedWardrobe is a Paper and Folia wardrobe plugin for servers that want armor cosmetics to feel clean for players and dependable for staff. Players save armor sets into GUI slots, equip or unequip them with one click, and the plugin handles persistence, bound armor protection, diagnostics, audit logs, and storage migration around it.
@@ -18,8 +18,9 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 | Area | Details |
 | --- | --- |
 | Server platform | Paper or Folia |
-| Java | `25` |
-| Target API | Paper `26.1.1` |
+| Java | `21+` |
+| Target API | Paper `1.21` |
+| Runtime support | Paper/Folia `1.21` through `26.1.2` |
 | Default storage | SQLite at `plugins/RuinedWardrobe/data/wardrobe.db` |
 | Network storage | MySQL or MariaDB |
 | Main commands | `/wardrobe`, `/rw` |
