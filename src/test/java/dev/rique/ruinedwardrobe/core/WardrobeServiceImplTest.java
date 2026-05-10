@@ -385,6 +385,69 @@ class WardrobeServiceImplTest {
         }
     }
 
+    @Test
+    void deleteSetRequiresUsePermission() {
+        UUID playerId = UUID.randomUUID();
+        SchedulerAdapter schedulerAdapter = immediateScheduler();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                schedulerAdapter,
+                repository,
+                mock(WardrobeCache.class),
+                mock(SlotLimitServiceImpl.class),
+                mock(RestrictionServiceImpl.class),
+                mock(WardrobeArmorBindingService.class),
+                mock(PluginConfig.class),
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(false);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+
+            WardrobeResult result = service.deleteSet(playerId, 1).join();
+
+            assertEquals(ResultCode.DENIED_NO_PERMISSION, result.code());
+            verify(repository, never()).deleteSet(any(UUID.class), any(Integer.class));
+        }
+    }
+
+    @Test
+    void renameSetRejectsMissingSavedSet() {
+        UUID playerId = UUID.randomUUID();
+        SchedulerAdapter schedulerAdapter = immediateScheduler();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = mock(WardrobeCache.class);
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeProfile profile = new WardrobeProfile(playerId, 0, -1, 1L, Map.of());
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                schedulerAdapter,
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                mock(WardrobeArmorBindingService.class),
+                mock(PluginConfig.class),
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(cache.get(playerId)).thenReturn(Optional.of(profile));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+
+            WardrobeResult result = service.renameSet(playerId, 2, "Weekend").join();
+
+            assertEquals(ResultCode.DENIED_NOTHING_SAVED, result.code());
+            verify(repository, never()).renameSet(any(UUID.class), any(Integer.class), any(String.class));
+        }
+    }
+
     private SchedulerAdapter immediateScheduler() {
         SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
         SchedulerAdapter.TaskHandle handle = mock(SchedulerAdapter.TaskHandle.class);
@@ -400,6 +463,7 @@ class WardrobeServiceImplTest {
         org.bukkit.Material material = mock(org.bukkit.Material.class);
         when(material.isAir()).thenReturn(false);
         when(itemStack.getType()).thenReturn(material);
+        when(itemStack.clone()).thenReturn(itemStack);
         return itemStack;
     }
 }

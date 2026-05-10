@@ -250,6 +250,9 @@ public final class WardrobeServiceImpl implements WardrobeService {
         if (player == null || !player.isOnline()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
         }
+        if (!PermissionNodes.has(player, "use")) {
+            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NO_PERMISSION, "error.no-permission", Map.of()));
+        }
         int maxSlots = slotLimitService.getMaxSlots(player);
         if (slot < 1 || slot > maxSlots) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-slot", Map.of("slot", String.valueOf(slot))));
@@ -284,6 +287,17 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     @Override
     public CompletableFuture<WardrobeResult> renameSet(UUID playerId, int slot, String newName) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null || !player.isOnline()) {
+            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
+        }
+        if (!PermissionNodes.has(player, "use")) {
+            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NO_PERMISSION, "error.no-permission", Map.of()));
+        }
+        int maxSlots = slotLimitService.getMaxSlots(player);
+        if (slot < 1 || slot > maxSlots) {
+            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-slot", Map.of("slot", String.valueOf(slot))));
+        }
         if (newName == null || newName.isBlank()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-name", Map.of()));
         }
@@ -291,15 +305,20 @@ public final class WardrobeServiceImpl implements WardrobeService {
         if (trimmedName.length() > 48) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.name-too-long", Map.of("max", "48")));
         }
-        return repository.renameSet(playerId, slot, trimmedName)
-                .thenCompose(ignored -> refreshProfileCache(playerId))
-                .thenApply(updated -> {
-                    auditLogger.record("RENAME_SET", playerId, null, Map.of("slot", slot, "name", trimmedName));
-                    return new WardrobeResult(ResultCode.SUCCESS_RENAMED, "success.renamed", Map.of("slot", String.valueOf(slot), "name", trimmedName));
-                })
-                .exceptionally(ex -> {
-                    auditLogger.error("RENAME_SET_ERROR", playerId, null, ex, Map.of("slot", slot, "name", trimmedName));
-                    return storageErrorResult(ex);
+        return getProfile(playerId).thenCompose(profile -> {
+            if (profile.getSet(slot) == null) {
+                return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NOTHING_SAVED, "error.nothing-saved", Map.of("slot", String.valueOf(slot))));
+            }
+            return repository.renameSet(playerId, slot, trimmedName)
+                    .thenCompose(ignored -> refreshProfileCache(playerId))
+                    .thenApply(updated -> {
+                        auditLogger.record("RENAME_SET", playerId, player.getName(), Map.of("slot", slot, "name", trimmedName));
+                        return new WardrobeResult(ResultCode.SUCCESS_RENAMED, "success.renamed", Map.of("slot", String.valueOf(slot), "name", trimmedName));
+                    })
+                    .exceptionally(ex -> {
+                        auditLogger.error("RENAME_SET_ERROR", playerId, player.getName(), ex, Map.of("slot", slot, "name", trimmedName));
+                        return storageErrorResult(ex);
+                    });
                 });
     }
 
@@ -335,9 +354,16 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     public long getRemainingCooldownMillis(UUID playerId) {
-        long expiresAt = cooldowns.getOrDefault(playerId, 0L);
+        Long expiresAt = cooldowns.get(playerId);
+        if (expiresAt == null) {
+            return 0L;
+        }
         long now = System.currentTimeMillis();
-        return Math.max(0L, expiresAt - now);
+        if (expiresAt <= now) {
+            cooldowns.remove(playerId, expiresAt);
+            return 0L;
+        }
+        return expiresAt - now;
     }
 
     private Map<String, String> firstNonEmptyAffectedSlot(Player player, WardrobeSet set) {

@@ -53,10 +53,13 @@ public final class MessageService {
 
     private String applyPlaceholders(Player player, String text, Map<String, String> placeholders) {
         Map<String, String> merged = new HashMap<>();
-        merged.putAll(placeholders);
+        if (placeholders != null) {
+            merged.putAll(placeholders);
+        }
         String output = text;
+        boolean miniMessageTarget = shouldUseMiniMessage(output);
         for (Map.Entry<String, String> entry : merged.entrySet()) {
-            output = output.replace("{" + entry.getKey() + "}", entry.getValue());
+            output = output.replace("{" + entry.getKey() + "}", placeholderValue(entry.getValue(), miniMessageTarget));
         }
         if (placeholderApiEnabled && player != null) {
             output = PlaceholderAPI.setPlaceholders(player, output);
@@ -65,16 +68,30 @@ public final class MessageService {
     }
 
     private Component parse(Player player, String text) {
-        return switch (formatMode) {
-            case LEGACY -> legacySerializer.deserialize(text);
-            case MINIMESSAGE -> miniMessage.deserialize(text);
-            case BOTH -> {
-                if (text.contains("<") && text.contains(">")) {
-                    yield miniMessage.deserialize(text);
+        try {
+            return switch (formatMode) {
+                case LEGACY -> legacySerializer.deserialize(text);
+                case MINIMESSAGE -> miniMessage.deserialize(text);
+                case BOTH -> {
+                    if (shouldUseMiniMessage(text)) {
+                        yield miniMessage.deserialize(text);
+                    }
+                    yield legacySerializer.deserialize(text);
                 }
-                yield legacySerializer.deserialize(text);
-            }
-        };
+            };
+        } catch (RuntimeException ex) {
+            return legacySerializer.deserialize(text);
+        }
+    }
+
+    private boolean shouldUseMiniMessage(String text) {
+        return formatMode == MessageFormatMode.MINIMESSAGE
+                || (formatMode == MessageFormatMode.BOTH && text.contains("<") && text.contains(">"));
+    }
+
+    private String placeholderValue(String value, boolean miniMessageTarget) {
+        String safeValue = value == null ? "" : value;
+        return miniMessageTarget ? miniMessage.escapeTags(safeValue) : safeValue;
     }
 }
 

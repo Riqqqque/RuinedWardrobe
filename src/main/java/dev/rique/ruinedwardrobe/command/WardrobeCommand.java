@@ -163,7 +163,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             targetId = player.getUniqueId();
             targetName = player.getName();
         }
-        wardrobeService.getProfile(targetId).thenAccept(profile -> runGlobal(() -> sendList(sender, targetName, profile)))
+        wardrobeService.getProfile(targetId).thenAccept(profile -> runForSender(sender, () -> sendList(sender, targetName, profile)))
                 .exceptionally(ex -> {
                     sendStorageError(sender, ex);
                     return null;
@@ -216,9 +216,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                 throw new RuntimeException(ex);
             }
             return true;
-        }).thenAccept(ignored -> runGlobal(() -> messageService.send(sender, "doctor.probe-ok")))
+        }).thenAccept(ignored -> runForSender(sender, () -> messageService.send(sender, "doctor.probe-ok")))
                 .exceptionally(ex -> {
-                    runGlobal(() -> messageService.send(sender, "doctor.probe-failed",
+                    runForSender(sender, () -> messageService.send(sender, "doctor.probe-failed",
                             Map.of("reason", sanitizeThrowableMessage(ex))));
                     return null;
                 });
@@ -248,14 +248,14 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         boolean force = Arrays.stream(args).anyMatch(s -> s.equalsIgnoreCase("--force"));
         migrationService.migrate(target, dryRun, force).thenAccept(result -> {
             String key = result.success() ? "success.migration-complete" : "error.migration-failed";
-            runGlobal(() -> messageService.send(sender, key, Map.of(
+            runForSender(sender, () -> messageService.send(sender, key, Map.of(
                     "players", String.valueOf(result.players()),
                     "sets", String.valueOf(result.sets()),
                     "meta", String.valueOf(result.metaRows()),
                     "message", sanitizeMessage(result.message()),
                     "target", target.name())));
         }).exceptionally(ex -> {
-            runGlobal(() -> messageService.send(sender, "error.migration-failed",
+            runForSender(sender, () -> messageService.send(sender, "error.migration-failed",
                     Map.of("message", sanitizeThrowableMessage(ex))));
             return null;
         });
@@ -313,7 +313,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                 slotLimitService.getBonusSlots(targetId).thenCompose(
                         oldValue -> slotLimitService.setBonusSlots(targetId, amount).thenApply(ignored -> oldValue))
                         .thenAccept(oldValue -> {
-                            runGlobal(() -> {
+                            runForSender(sender, () -> {
                                 Bukkit.getPluginManager()
                                         .callEvent(new WardrobeSlotsChangedEvent(targetId, oldValue, amount));
                                 messageService.send(sender, "success.admin-setslots", Map.of(
@@ -342,7 +342,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                         .thenCompose(
                                 oldValue -> slotLimitService.setBonusSlots(targetId, 0).thenApply(ignored -> oldValue))
                         .thenAccept(oldValue -> {
-                            runGlobal(() -> {
+                            runForSender(sender, () -> {
                                 Bukkit.getPluginManager().callEvent(new WardrobeSlotsChangedEvent(targetId, oldValue, 0));
                                 messageService.send(sender, "success.admin-clearslots", Map.of(
                                         "player", target.getName() == null ? targetId.toString() : target.getName()));
@@ -377,7 +377,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendStorageError(CommandSender sender, Throwable throwable) {
-        runGlobal(() -> messageService.send(sender, "error.storage",
+        runForSender(sender, () -> messageService.send(sender, "error.storage",
                 Map.of("reason", sanitizeThrowableMessage(throwable))));
     }
 
@@ -443,6 +443,21 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
 
     private void runGlobal(Runnable runnable) {
         schedulerAdapter.runGlobal(runnable);
+    }
+
+    private void runForSender(CommandSender sender, Runnable runnable) {
+        if (sender instanceof Player player) {
+            if (!player.isOnline()) {
+                return;
+            }
+            try {
+                schedulerAdapter.runPlayer(player, runnable);
+            } catch (IllegalStateException ignored) {
+                // Player disconnected or retired before the reply could be scheduled.
+            }
+            return;
+        }
+        runGlobal(runnable);
     }
 
     private OfflinePlayer resolveKnownPlayer(String name) {

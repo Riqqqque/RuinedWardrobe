@@ -191,7 +191,7 @@ public final class GuiConfig {
             return new GuiItemTemplate(defaultMaterial, defaultNameKey, defaultLoreKeys, defaultGlow, defaultModelData);
         }
         Material material = Material.matchMaterial(section.getString("material", defaultMaterial.name()));
-        if (material == null) {
+        if (!isUsableItemMaterial(material)) {
             material = defaultMaterial;
         }
         if ("locked-slot".equals(key) && material == Material.BARRIER) {
@@ -206,6 +206,10 @@ public final class GuiConfig {
         boolean glow = section.getBoolean("glow", defaultGlow);
         int modelData = section.getInt("model-data", defaultModelData);
         return new GuiItemTemplate(material, nameKey, loreKeys, glow, modelData);
+    }
+
+    private static boolean isUsableItemMaterial(Material material) {
+        return material != null && !material.isAir() && material.isItem();
     }
 
     // Getters

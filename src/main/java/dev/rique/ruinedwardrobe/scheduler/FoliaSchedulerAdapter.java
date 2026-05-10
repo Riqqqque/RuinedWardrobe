@@ -5,6 +5,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.concurrent.TimeUnit;
+
 public final class FoliaSchedulerAdapter implements SchedulerAdapter {
 
     private final JavaPlugin plugin;
@@ -28,6 +30,9 @@ public final class FoliaSchedulerAdapter implements SchedulerAdapter {
     @Override
     public TaskHandle runPlayer(Player player, Runnable runnable) {
         ScheduledTask task = player.getScheduler().run(plugin, ignored -> runnable.run(), null);
+        if (task == null) {
+            throw new IllegalStateException("Player is no longer schedulable");
+        }
         return task::cancel;
     }
 
@@ -35,7 +40,7 @@ public final class FoliaSchedulerAdapter implements SchedulerAdapter {
     public TaskHandle runTimerAsync(Runnable runnable, long delayTicks, long periodTicks) {
         long delayMs = delayTicks * 50L;
         long periodMs = periodTicks * 50L;
-        ScheduledTask task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, ignored -> runnable.run(), delayMs, periodMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        ScheduledTask task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, ignored -> runnable.run(), delayMs, periodMs, TimeUnit.MILLISECONDS);
         return task::cancel;
     }
 

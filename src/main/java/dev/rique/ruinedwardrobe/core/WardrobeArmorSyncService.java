@@ -189,7 +189,7 @@ public final class WardrobeArmorSyncService {
                     ? CompletableFuture.completedFuture(null)
                     : CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
 
-                    return writesFuture
+            return writesFuture
                     .thenCompose(ignored -> profile.selectedSlot() < 1
                             ? CompletableFuture.completedFuture(null)
                             : repository.setSelectedSlot(profile.playerId(), -1))

@@ -10,7 +10,7 @@
 
 ## Admin
 - `ruinedwardrobe.admin`: Access admin subcommands.
-- `ruinedwardrobe.admin.*`: Includes `ruinedwardrobe.admin` and command admin nodes.
+- `ruinedwardrobe.admin.*`: Includes `ruinedwardrobe.admin` and `ruinedwardrobe.command.*`.
 - `ruinedwardrobe.command.*`: Includes all non-admin command nodes.
 
 ## Slot Tiers
@@ -22,7 +22,3 @@
 - `ruinedwardrobe.bypass.restrictions`
 - `ruinedwardrobe.bypass.emptycheck`
 - `ruinedwardrobe.bypass.combat`
-
-## Optional
-- `ruinedwardrobe.notify.update`
-- `ruinedwardrobe.api.listen`

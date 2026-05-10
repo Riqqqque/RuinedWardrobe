@@ -39,7 +39,7 @@ ruinedwardrobe.admin.*
 | `ruinedwardrobe.use` | Base wardrobe access. |
 | `ruinedwardrobe.command.*` | Non-admin command nodes. It does not grant `ruinedwardrobe.admin`. |
 | `ruinedwardrobe.admin` | Admin subcommands such as open and slot adjustment. |
-| `ruinedwardrobe.admin.*` | Admin access plus doctor, reload, and migrate nodes. |
+| `ruinedwardrobe.admin.*` | Admin access plus non-admin command nodes. |
 
 ## Slot Nodes
 
@@ -82,7 +82,7 @@ Keep bypass nodes off normal ranks. They are for staff, testing, and support rec
 | MVP | `ruinedwardrobe.slots.9` |
 | Legend | `ruinedwardrobe.slots.15` |
 | Moderator | `ruinedwardrobe.command.doctor`, selected bypass nodes if needed |
-| Admin | `ruinedwardrobe.admin.*`, `ruinedwardrobe.command.*` |
+| Admin | `ruinedwardrobe.admin.*` |
 
 ## LuckPerms Examples
 
@@ -105,7 +105,6 @@ Admin tools:
 
 ```text
 /lp group admin permission set ruinedwardrobe.admin.* true
-/lp group admin permission set ruinedwardrobe.command.* true
 /lp group admin permission set ruinedwardrobe.bypass.cooldown true
 ```
 

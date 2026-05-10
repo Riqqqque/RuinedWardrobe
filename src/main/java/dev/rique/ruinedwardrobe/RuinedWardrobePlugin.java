@@ -42,6 +42,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 public final class RuinedWardrobePlugin extends JavaPlugin {
 
@@ -72,8 +73,7 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
             bootstrap();
             getLogger().info("RuinedWardrobe enabled successfully.");
         } catch (Exception ex) {
-            getLogger().severe("Failed to enable RuinedWardrobe: " + ex.getMessage());
-            ex.printStackTrace();
+            getLogger().log(Level.SEVERE, "Failed to enable RuinedWardrobe", ex);
             Bukkit.getPluginManager().disablePlugin(this);
         }
     }
@@ -180,8 +180,12 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
     }
 
     private void initializeIntegrations(PluginConfig pluginConfig) {
-        vaultHook = new VaultHook(this, pluginConfig);
-        vaultHook.initialize();
+        if (pluginConfig.integrationSettings().vaultEnabled() && Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            vaultHook = new VaultHook(this, pluginConfig);
+            vaultHook.initialize();
+        } else {
+            vaultHook = null;
+        }
 
         if (pluginConfig.integrationSettings().placeholderApiEnabled() && Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             placeholderExpansion = new RuinedWardrobeExpansion(this, wardrobeService, slotLimitService);

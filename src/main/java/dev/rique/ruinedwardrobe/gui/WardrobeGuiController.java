@@ -73,10 +73,10 @@ public final class WardrobeGuiController {
 
     public void openMain(Player viewer, UUID targetId, int page) {
         wardrobeService.getProfile(targetId).thenAccept(
-                profile -> schedulerAdapter.runPlayer(viewer, () -> openMainSync(viewer, targetId, profile, page)))
+                profile -> runForViewer(viewer, () -> openMainSync(viewer, targetId, profile, page)))
                 .exceptionally(ex -> {
-                    schedulerAdapter.runPlayer(viewer,
-                            () -> messageService.send(viewer, "error.storage", Map.of("reason", ex.getMessage())));
+                    runForViewer(viewer,
+                            () -> messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex))));
                     return null;
                 });
     }
@@ -177,7 +177,7 @@ public final class WardrobeGuiController {
         }
 
         wardrobeService.setArmorPiece(session.targetId(), wardrobeSlot, piece.key(), consumed)
-                .thenAccept(result -> schedulerAdapter.runPlayer(viewer, () -> {
+                .thenAccept(result -> runForViewer(viewer, () -> {
                     if (!result.isSuccess()) {
                         restoreCursorItem(viewer, consumed);
                     }
@@ -186,9 +186,9 @@ public final class WardrobeGuiController {
                     openMain(viewer, session.targetId(), session.page());
                 }))
                 .exceptionally(ex -> {
-                    schedulerAdapter.runPlayer(viewer, () -> {
+                    runForViewer(viewer, () -> {
                         restoreCursorItem(viewer, consumed);
-                        messageService.send(viewer, "error.storage", Map.of("reason", ex.getMessage()));
+                        messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
                         endAction(viewer);
                         openMain(viewer, session.targetId(), session.page());
                     });
@@ -203,7 +203,7 @@ public final class WardrobeGuiController {
         if (!beginAction(viewer)) {
             return;
         }
-        wardrobeService.getProfile(session.targetId()).thenAccept(profile -> schedulerAdapter.runPlayer(viewer, () -> {
+        wardrobeService.getProfile(session.targetId()).thenAccept(profile -> runForViewer(viewer, () -> {
             WardrobeSet set = profile.getSet(wardrobeSlot);
             if (set == null) {
                 endAction(viewer);
@@ -226,7 +226,7 @@ public final class WardrobeGuiController {
 
             ItemStack reward = resolvePickupReward(viewer, session.targetId(), wardrobeSlot, piece, armorPiece);
             wardrobeService.clearArmorPiece(session.targetId(), wardrobeSlot, piece.key())
-                    .thenAccept(result -> schedulerAdapter.runPlayer(viewer, () -> {
+                    .thenAccept(result -> runForViewer(viewer, () -> {
                         if (result.isSuccess()) {
                             giveOrDrop(viewer, reward);
                         }
@@ -235,15 +235,15 @@ public final class WardrobeGuiController {
                         openMain(viewer, session.targetId(), session.page());
                     }))
                     .exceptionally(ex -> {
-                        schedulerAdapter.runPlayer(viewer, () -> {
-                            messageService.send(viewer, "error.storage", Map.of("reason", ex.getMessage()));
+                        runForViewer(viewer, () -> {
+                            messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
                             endAction(viewer);
                         });
                         return null;
                     });
         })).exceptionally(ex -> {
-            schedulerAdapter.runPlayer(viewer, () -> {
-                messageService.send(viewer, "error.storage", Map.of("reason", ex.getMessage()));
+            runForViewer(viewer, () -> {
+                messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
                 endAction(viewer);
             });
             return null;
@@ -416,27 +416,27 @@ public final class WardrobeGuiController {
                 "slot", String.valueOf(set.slot()),
                 "name", set.name());
 
-        // Helmet
-        ItemStack helmet = set.helmet() != null && !set.helmet().getType().isAir()
-                ? createArmorDisplay(set.helmet(), viewer, placeholders, selected)
+        ItemStack savedHelmet = set.helmet();
+        ItemStack helmet = savedHelmet != null && !savedHelmet.getType().isAir()
+                ? createArmorDisplay(savedHelmet, viewer, placeholders, selected)
                 : buildTemplate(viewer, guiConfig.emptySlotTemplate(), placeholders);
         setIfConfigured(inventory, guiConfig.getSlotForColumn(column, guiConfig.helmetRow()), helmet);
 
-        // Chestplate
-        ItemStack chest = set.chestplate() != null && !set.chestplate().getType().isAir()
-                ? createArmorDisplay(set.chestplate(), viewer, placeholders, selected)
+        ItemStack savedChestplate = set.chestplate();
+        ItemStack chest = savedChestplate != null && !savedChestplate.getType().isAir()
+                ? createArmorDisplay(savedChestplate, viewer, placeholders, selected)
                 : buildTemplate(viewer, guiConfig.emptySlotTemplate(), placeholders);
         setIfConfigured(inventory, guiConfig.getSlotForColumn(column, guiConfig.chestplateRow()), chest);
 
-        // Leggings
-        ItemStack legs = set.leggings() != null && !set.leggings().getType().isAir()
-                ? createArmorDisplay(set.leggings(), viewer, placeholders, selected)
+        ItemStack savedLeggings = set.leggings();
+        ItemStack legs = savedLeggings != null && !savedLeggings.getType().isAir()
+                ? createArmorDisplay(savedLeggings, viewer, placeholders, selected)
                 : buildTemplate(viewer, guiConfig.emptySlotTemplate(), placeholders);
         setIfConfigured(inventory, guiConfig.getSlotForColumn(column, guiConfig.leggingsRow()), legs);
 
-        // Boots
-        ItemStack boots = set.boots() != null && !set.boots().getType().isAir()
-                ? createArmorDisplay(set.boots(), viewer, placeholders, selected)
+        ItemStack savedBoots = set.boots();
+        ItemStack boots = savedBoots != null && !savedBoots.getType().isAir()
+                ? createArmorDisplay(savedBoots, viewer, placeholders, selected)
                 : buildTemplate(viewer, guiConfig.emptySlotTemplate(), placeholders);
         setIfConfigured(inventory, guiConfig.getSlotForColumn(column, guiConfig.bootsRow()), boots);
     }
@@ -462,13 +462,13 @@ public final class WardrobeGuiController {
         if (!beginAction(viewer)) {
             return;
         }
-        future.thenAccept(result -> schedulerAdapter.runPlayer(viewer, () -> {
+        future.thenAccept(result -> runForViewer(viewer, () -> {
             applyFeedback(viewer, result);
             endAction(viewer);
             openMain(viewer, session.targetId(), session.page());
         })).exceptionally(ex -> {
-            schedulerAdapter.runPlayer(viewer, () -> {
-                messageService.send(viewer, "error.storage", Map.of("reason", ex.getMessage()));
+            runForViewer(viewer, () -> {
+                messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
                 endAction(viewer);
             });
             return null;
@@ -491,33 +491,41 @@ public final class WardrobeGuiController {
 
     private ItemStack nav(Material material, Player player, String nameKey, List<String> loreKeys,
             Map<String, String> placeholders) {
-        ItemStack itemStack = new ItemStack(material);
+        ItemStack itemStack = new ItemStack(safeMaterial(material));
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(messageService.component(player, nameKey, placeholders));
-        meta.lore(resolveLore(player, loreKeys, placeholders));
-        itemStack.setItemMeta(meta);
+        if (meta != null) {
+            meta.displayName(messageService.component(player, nameKey, placeholders));
+            meta.lore(resolveLore(player, loreKeys, placeholders));
+            itemStack.setItemMeta(meta);
+        }
         return itemStack;
     }
 
     private ItemStack buildTemplate(Player player, GuiConfig.GuiItemTemplate template,
             Map<String, String> placeholders) {
-        Material material = template.material();
-        if (material == null) {
-            material = Material.STONE;
-        }
+        Material material = safeMaterial(template.material());
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(messageService.component(player, template.nameKey(), placeholders));
-        meta.lore(resolveLore(player, template.loreKeys(), placeholders));
-        if (template.modelData() > 0) {
-            meta.setCustomModelData(template.modelData());
+        if (meta != null) {
+            meta.displayName(messageService.component(player, template.nameKey(), placeholders));
+            meta.lore(resolveLore(player, template.loreKeys(), placeholders));
+            if (template.modelData() > 0) {
+                meta.setCustomModelData(template.modelData());
+            }
+            if (template.glow()) {
+                meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            }
+            itemStack.setItemMeta(meta);
         }
-        if (template.glow()) {
-            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        }
-        itemStack.setItemMeta(meta);
         return itemStack;
+    }
+
+    private Material safeMaterial(Material material) {
+        if (material == null || material.isAir() || !material.isItem()) {
+            return Material.STONE;
+        }
+        return material;
     }
 
     private boolean slotMatches(int configSlot, int clickedSlot) {
@@ -626,6 +634,29 @@ public final class WardrobeGuiController {
 
     private boolean isAir(ItemStack itemStack) {
         return itemStack == null || itemStack.getType().isAir();
+    }
+
+    private void runForViewer(Player viewer, Runnable runnable) {
+        if (viewer == null || !viewer.isOnline()) {
+            return;
+        }
+        try {
+            schedulerAdapter.runPlayer(viewer, runnable);
+        } catch (IllegalStateException ignored) {
+            // Player disconnected or retired before the GUI update could be scheduled.
+        }
+    }
+
+    private String failureMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null && current.getCause() != null) {
+            current = current.getCause();
+        }
+        if (current == null) {
+            return "unknown";
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
     private List<Component> resolveLore(Player player, List<String> loreKeys, Map<String, String> placeholders) {

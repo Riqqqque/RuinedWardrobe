@@ -35,9 +35,7 @@ permissions:
     default: op
     children:
       ruinedwardrobe.admin: true
-      ruinedwardrobe.command.doctor: true
-      ruinedwardrobe.command.reload: true
-      ruinedwardrobe.command.migrate: true
+      ruinedwardrobe.command.*: true
   ruinedwardrobe.command.*:
     default: op
     children:
@@ -54,7 +52,3 @@ permissions:
     default: op
   ruinedwardrobe.bypass.combat:
     default: op
-  ruinedwardrobe.notify.update:
-    default: op
-  ruinedwardrobe.api.listen:
-    default: false
