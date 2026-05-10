@@ -17,15 +17,16 @@ Use this page when you want RuinedWardrobe installed, tested, and ready for a fi
 
 ## Install Checklist
 
-1. Put `RuinedWardrobe-1.0.0.jar` in the server `plugins` folder.
-2. Start the server once so RuinedWardrobe creates its files.
-3. Stop the server.
-4. Open `plugins/RuinedWardrobe/config.yml`.
-5. Review storage, slots, death behavior, restrictions, audit, and anti-dupe settings.
-6. Start the server again.
-7. Give players `ruinedwardrobe.use`.
-8. Give players one slot tier, such as `ruinedwardrobe.slots.3`.
-9. Run `/wardrobe` as a normal player.
+1. Download `RuinedWardrobe-1.0.0.jar` from the [latest release](https://github.com/Riqqqque/RuinedWardrobe/releases/latest).
+2. Put `RuinedWardrobe-1.0.0.jar` in the server `plugins` folder.
+3. Start the server once so RuinedWardrobe creates its files.
+4. Stop the server.
+5. Open `plugins/RuinedWardrobe/config.yml`.
+6. Review storage, slots, death behavior, restrictions, audit, and anti-dupe settings.
+7. Start the server again.
+8. Give players `ruinedwardrobe.use`.
+9. Give players one slot tier, such as `ruinedwardrobe.slots.3`.
+10. Run `/wardrobe` as a normal player.
 
 ## First Player Test
 

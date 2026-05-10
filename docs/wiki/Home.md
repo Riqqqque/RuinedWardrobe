@@ -1,4 +1,9 @@
-# RuinedWardrobe Wiki
+# RuinedWardrobe
+
+[![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
+[![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
 
 RuinedWardrobe is a Paper and Folia wardrobe plugin for servers that want armor cosmetics to feel clean for players and dependable for staff. Players save armor sets into GUI slots, equip or unequip them with one click, and the plugin handles persistence, bound armor protection, diagnostics, audit logs, and storage migration around it.
 
@@ -101,6 +106,12 @@ plugins/RuinedWardrobe/
 3. Keep audit logs enabled unless you have a measured reason to turn them off.
 4. Test with a normal player account, not only an operator account.
 5. Use the wiki checklists before opening a new build to players.
+
+## Important Links
+
+- [Repository](https://github.com/Riqqqque/RuinedWardrobe)
+- [Latest Release](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+- [License](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
 
 ## Page Map
 
