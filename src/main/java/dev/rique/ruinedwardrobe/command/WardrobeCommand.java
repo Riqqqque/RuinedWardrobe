@@ -237,9 +237,16 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             messageService.send(sender, "usage.migrate");
             return;
         }
+        for (int i = 2; i < args.length; i++) {
+            if (!args[i].equalsIgnoreCase("--dry-run") && !args[i].equalsIgnoreCase("--force")) {
+                messageService.send(sender, "usage.migrate");
+                return;
+            }
+        }
         DatabaseType target = DatabaseType.parse(args[1]);
         boolean dryRun = Arrays.stream(args).anyMatch(s -> s.equalsIgnoreCase("--dry-run"));
-        migrationService.migrate(target, dryRun).thenAccept(result -> {
+        boolean force = Arrays.stream(args).anyMatch(s -> s.equalsIgnoreCase("--force"));
+        migrationService.migrate(target, dryRun, force).thenAccept(result -> {
             String key = result.success() ? "success.migration-complete" : "error.migration-failed";
             runGlobal(() -> messageService.send(sender, key, Map.of(
                     "players", String.valueOf(result.players()),
@@ -489,6 +496,17 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         if (args.length == 3 && args[0].equalsIgnoreCase("admin") && PermissionNodes.has(sender, "admin")) {
             return filterByPrefix(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()),
                     args[2]);
+        }
+        if (args.length >= 3
+                && args[0].equalsIgnoreCase("migrate")
+                && PermissionNodes.has(sender, "command.migrate")
+                && (args[1].equalsIgnoreCase("sqlite") || args[1].equalsIgnoreCase("mysql"))) {
+            List<String> flags = new ArrayList<>(List.of("--dry-run", "--force"));
+            for (int i = 2; i < args.length - 1; i++) {
+                String usedFlag = args[i];
+                flags.removeIf(flag -> flag.equalsIgnoreCase(usedFlag));
+            }
+            return filterByPrefix(flags, args[args.length - 1]);
         }
         return List.of();
     }

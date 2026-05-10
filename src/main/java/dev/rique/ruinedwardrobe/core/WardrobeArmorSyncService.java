@@ -203,25 +203,14 @@ public final class WardrobeArmorSyncService {
     }
 
     public CompletableFuture<Void> flushOnlinePlayers() {
-        CompletableFuture<Void> completion = new CompletableFuture<>();
-        schedulerAdapter.runGlobal(() -> {
-            List<CompletableFuture<Void>> syncTasks = new ArrayList<>();
-            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                if (!hasTrackedArmor(onlinePlayer)) {
-                    continue;
-                }
-                syncTasks.add(requestSync(onlinePlayer));
+        List<CompletableFuture<Void>> syncTasks = new ArrayList<>();
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            if (!hasTrackedArmor(onlinePlayer)) {
+                continue;
             }
-            CompletableFuture.allOf(syncTasks.toArray(new CompletableFuture[0]))
-                    .whenComplete((ignored, throwable) -> {
-                        if (throwable != null) {
-                            completion.completeExceptionally(throwable);
-                            return;
-                        }
-                        completion.complete(null);
-                    });
-        });
-        return completion;
+            syncTasks.add(syncNow(onlinePlayer));
+        }
+        return CompletableFuture.allOf(syncTasks.toArray(new CompletableFuture[0]));
     }
 
     private void syncOnlinePlayers() {

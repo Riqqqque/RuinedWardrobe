@@ -10,8 +10,15 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public final class MigrationService {
+
+    private static final Executor CLEANUP_EXECUTOR = runnable -> {
+        Thread thread = new Thread(runnable, "RuinedWardrobe-Migration-Cleanup");
+        thread.setDaemon(true);
+        thread.start();
+    };
 
     private final JavaPlugin plugin;
     private final PluginConfig pluginConfig;
@@ -24,6 +31,10 @@ public final class MigrationService {
     }
 
     public CompletableFuture<MigrationResult> migrate(DatabaseType targetType, boolean dryRun) {
+        return migrate(targetType, dryRun, false);
+    }
+
+    public CompletableFuture<MigrationResult> migrate(DatabaseType targetType, boolean dryRun, boolean force) {
         DatabaseType sourceType = pluginConfig.storageSettings().type();
         if (sourceType == targetType) {
             return CompletableFuture.completedFuture(new MigrationResult(false, 0, 0, 0, "Source and target storage are the same"));
@@ -83,31 +94,100 @@ public final class MigrationService {
                     new ItemStackDataSerializer(),
                     WardrobeAuditLogger.disabled());
 
-            return targetRepository.initializeSchema()
-                    .thenCompose(ignored -> targetRepository.writeSnapshot(snapshot))
+            CompletableFuture<MigrationResult> migration = targetRepository.initializeSchema()
                     .thenCompose(ignored -> targetRepository.readSnapshot())
-                    .handle((copiedSnapshot, throwable) -> {
-                        targetManager.shutdown();
-                        if (throwable != null) {
-                            return new MigrationResult(
+                    .thenCompose(rawTargetSnapshot -> {
+                        WardrobeRepository.MigrationSnapshot targetSnapshot = SnapshotMigrationSupport.normalize(rawTargetSnapshot);
+                        boolean targetHasData = hasStoredWardrobeData(targetSnapshot);
+                        if (targetHasData && !force) {
+                            return CompletableFuture.completedFuture(new MigrationResult(
                                     false,
                                     playerCount,
                                     setCount,
                                     metaCount,
-                                    "Migration failed after backup " + backupFile.getAbsolutePath() + ": "
-                                            + SnapshotMigrationSupport.rootMessage(throwable));
+                                    "Migration aborted after backup " + backupFile.getAbsolutePath()
+                                            + ": target " + targetType.name()
+                                            + " already contains " + targetSnapshot.players().size()
+                                            + " players and " + targetSnapshot.sets().size()
+                                            + " sets. Re-run with --force to overwrite it."));
                         }
 
-                        WardrobeRepository.MigrationSnapshot normalizedTarget = SnapshotMigrationSupport.normalize(copiedSnapshot);
-                        String targetDigest = SnapshotMigrationSupport.snapshotDigest(normalizedTarget);
-                        boolean ok = sourceDigest.equals(targetDigest);
-                        String message = ok
-                                ? "Migration complete. Backup: " + backupFile.getAbsolutePath() + " Digest: " + targetDigest
-                                : "Migration verification failed. Backup: " + backupFile.getAbsolutePath()
-                                + " Source digest: " + sourceDigest + " Target digest: " + targetDigest;
-                        return new MigrationResult(ok, playerCount, setCount, metaCount, message);
-                    });
+                        CompletableFuture<File> targetBackupFuture = targetHasData
+                                ? writeTargetBackup(sourceType, targetType, targetSnapshot)
+                                : CompletableFuture.completedFuture(null);
+
+                        return targetBackupFuture
+                                .thenCompose(targetBackup -> targetRepository.writeSnapshot(snapshot)
+                                        .thenCompose(ignored -> targetRepository.readSnapshot())
+                                        .thenApply(copiedSnapshot -> verifyMigration(
+                                                copiedSnapshot,
+                                                sourceDigest,
+                                                backupFile,
+                                                targetBackup,
+                                                playerCount,
+                                                setCount,
+                                                metaCount)));
+                    })
+                    .exceptionally(throwable -> new MigrationResult(
+                            false,
+                            playerCount,
+                            setCount,
+                            metaCount,
+                            "Migration failed after backup " + backupFile.getAbsolutePath() + ": "
+                                    + SnapshotMigrationSupport.rootMessage(throwable)));
+
+            return migration.thenCompose(result -> shutdownTarget(targetManager).thenApply(ignored -> result));
         });
+    }
+
+    private CompletableFuture<File> writeTargetBackup(
+            DatabaseType sourceType,
+            DatabaseType targetType,
+            WardrobeRepository.MigrationSnapshot targetSnapshot) {
+        try {
+            return CompletableFuture.completedFuture(SnapshotMigrationSupport.writeBackup(
+                    plugin.getDataFolder(),
+                    "migration-target-" + targetType.name().toLowerCase() + "-before-"
+                            + sourceType.name().toLowerCase() + "-copy",
+                    Map.of(
+                            "source-storage", sourceType.name(),
+                            "target-storage", targetType.name(),
+                            "backup-reason", "target-overwrite"),
+                    targetSnapshot));
+        } catch (IOException ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    private MigrationResult verifyMigration(
+            WardrobeRepository.MigrationSnapshot copiedSnapshot,
+            String sourceDigest,
+            File sourceBackup,
+            File targetBackup,
+            int playerCount,
+            int setCount,
+            int metaCount) {
+        WardrobeRepository.MigrationSnapshot normalizedTarget = SnapshotMigrationSupport.normalize(copiedSnapshot);
+        String targetDigest = SnapshotMigrationSupport.snapshotDigest(normalizedTarget);
+        boolean ok = sourceDigest.equals(targetDigest);
+        String backupText = "Backup: " + sourceBackup.getAbsolutePath();
+        if (targetBackup != null) {
+            backupText += " Target backup: " + targetBackup.getAbsolutePath();
+        }
+        String message = ok
+                ? "Migration complete. " + backupText + " Digest: " + targetDigest
+                : "Migration verification failed. " + backupText
+                + " Source digest: " + sourceDigest + " Target digest: " + targetDigest;
+        return new MigrationResult(ok, playerCount, setCount, metaCount, message);
+    }
+
+    private boolean hasStoredWardrobeData(WardrobeRepository.MigrationSnapshot snapshot) {
+        return !snapshot.players().isEmpty() || !snapshot.sets().isEmpty();
+    }
+
+    private CompletableFuture<Void> shutdownTarget(DatabaseManager targetManager) {
+        return CompletableFuture.runAsync(targetManager::shutdown, CLEANUP_EXECUTOR)
+                .exceptionally(ignored -> null);
     }
 
     public record MigrationResult(

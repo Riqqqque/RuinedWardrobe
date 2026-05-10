@@ -81,7 +81,7 @@ public final class PluginConfig {
     }
 
     public static PluginConfig from(FileConfiguration config) {
-        int defaultSlots = Math.max(1, config.getInt("wardrobe.default-slots", 8));
+        int defaultSlots = Math.max(1, config.getInt("wardrobe.default-slots", 3));
         int maxSlotsCap = Math.max(defaultSlots, config.getInt("wardrobe.max-slots-cap", 54));
         int maxPages = Math.max(1, Math.min(10, config.getInt("wardrobe.max-pages", 2)));
         long equipCooldownMillis = Math.max(0, config.getLong("wardrobe.equip-cooldown-seconds", 3)) * 1000L;

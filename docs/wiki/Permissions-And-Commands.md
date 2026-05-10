@@ -17,7 +17,7 @@ RuinedWardrobe is designed around simple player access, rank-based slot tiers, a
 | --- | --- | --- |
 | `/wardrobe doctor` | Shows runtime diagnostics. | `ruinedwardrobe.command.doctor` |
 | `/wardrobe reload` | Reloads config, GUI, and language files. | `ruinedwardrobe.command.reload` |
-| `/wardrobe migrate <sqlite|mysql> [--dry-run]` | Migrates storage with snapshot verification. | `ruinedwardrobe.command.migrate` |
+| `/wardrobe migrate <sqlite|mysql> [--dry-run] [--force]` | Migrates storage with snapshot verification. | `ruinedwardrobe.command.migrate` |
 | `/wardrobe admin open <player>` | Opens another online player's wardrobe GUI. | `ruinedwardrobe.admin` |
 | `/wardrobe admin setslots <player> <amount>` | Sets admin bonus slots. | `ruinedwardrobe.admin` |
 | `/wardrobe admin clearslots <player>` | Resets admin bonus slots to `0`. | `ruinedwardrobe.admin` |

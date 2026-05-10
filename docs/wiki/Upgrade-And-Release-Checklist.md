@@ -52,7 +52,7 @@ For MySQL to SQLite:
 /wardrobe migrate sqlite
 ```
 
-Do not skip the dry-run. It is there to catch bad credentials, unreachable storage, and data verification problems before the real move.
+Do not skip the dry-run. If the target already contains wardrobe data, the real migration stops unless you add `--force`, and a target backup is written before overwrite.
 
 ## Rollback
 

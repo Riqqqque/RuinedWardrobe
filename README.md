@@ -47,7 +47,7 @@ build/libs/RuinedWardrobe-1.0.0.jar
 - `/wardrobe list [player]` lists saved wardrobe sets.
 - `/wardrobe doctor` prints runtime diagnostics.
 - `/wardrobe reload` reloads config, GUI, and language files.
-- `/wardrobe migrate <sqlite|mysql> [--dry-run]` migrates storage with snapshot verification.
+- `/wardrobe migrate <sqlite|mysql> [--dry-run] [--force]` migrates storage with snapshot verification.
 - `/wardrobe admin open <player>` opens another player's wardrobe.
 - `/wardrobe admin setslots <player> <amount>` adds admin bonus slots.
 - `/wardrobe admin clearslots <player>` removes admin bonus slots.
