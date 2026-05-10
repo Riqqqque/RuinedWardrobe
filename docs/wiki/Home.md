@@ -1,6 +1,7 @@
 # RuinedWardrobe
 
-[![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+[![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/download/v1.0.0/RuinedWardrobe-1.0.0.jar)
 [![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
