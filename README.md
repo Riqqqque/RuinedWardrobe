@@ -142,6 +142,7 @@ Reference docs:
 - [Migration Guide](docs/migration-guide.md)
 - [Permissions](docs/permissions.md)
 - [Placeholders](docs/placeholders.md)
+- [Ruined Ecosystem Parity](docs/ruined-ecosystem-parity.md)
 
 ## Development
 
