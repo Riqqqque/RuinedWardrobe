@@ -35,8 +35,12 @@ final class SnapshotMigrationSupport {
             if (row.slot() < 1) {
                 throw new IllegalStateException("Snapshot contains an invalid slot index " + row.slot() + " for " + row.playerId());
             }
+            WardrobeRepository.SetRow sanitized = sanitizeSetRow(row);
+            if (!hasAnyArmorPayload(sanitized)) {
+                continue;
+            }
             String key = row.playerId() + "#" + row.slot();
-            if (setsByKey.putIfAbsent(key, sanitizeSetRow(row)) != null) {
+            if (setsByKey.putIfAbsent(key, sanitized) != null) {
                 throw new IllegalStateException("Snapshot contains duplicate wardrobe slot rows for " + key);
             }
         }
@@ -193,6 +197,13 @@ final class SnapshotMigrationSupport {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static boolean hasAnyArmorPayload(WardrobeRepository.SetRow row) {
+        return row.helmetData() != null
+                || row.chestData() != null
+                || row.legsData() != null
+                || row.bootsData() != null;
     }
 
     private static Map<String, Object> playerBackupRow(WardrobeRepository.PlayerRow row) {

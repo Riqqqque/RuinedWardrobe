@@ -185,7 +185,17 @@ public final class WardrobeArmorProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
-        armorSyncService.handleDeath(event.getEntity(), event.getKeepInventory(), event.getDrops());
+        Player player = event.getEntity();
+        armorSyncService.handleDeath(player, event.getKeepInventory(), event.getDrops())
+                .exceptionally(ex -> {
+                    auditLogger.error(
+                            "DEATH_SYNC_ERROR",
+                            player.getUniqueId(),
+                            player.getName(),
+                            ex,
+                            Map.of("keepInventory", event.getKeepInventory()));
+                    return null;
+                });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

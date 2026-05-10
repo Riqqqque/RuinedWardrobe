@@ -30,6 +30,8 @@ public final class ConfigManager {
 
         YamlConfiguration guiYaml = loadVersionedConfig("gui.yml", GUI_CONFIG_VERSION);
         guiConfig = GuiConfig.from(guiYaml);
+
+        ensureResourceExists("permissions.yml", new File(plugin.getDataFolder(), "permissions.yml"));
     }
 
     public void reload() {

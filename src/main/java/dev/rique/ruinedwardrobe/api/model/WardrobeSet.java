@@ -15,10 +15,30 @@ public record WardrobeSet(
 ) {
     public WardrobeSet {
         name = Objects.requireNonNullElse(name, "");
-        helmet = helmet == null ? null : helmet.clone();
-        chestplate = chestplate == null ? null : chestplate.clone();
-        leggings = leggings == null ? null : leggings.clone();
-        boots = boots == null ? null : boots.clone();
+        helmet = cloneItem(helmet);
+        chestplate = cloneItem(chestplate);
+        leggings = cloneItem(leggings);
+        boots = cloneItem(boots);
+    }
+
+    @Override
+    public ItemStack helmet() {
+        return cloneItem(helmet);
+    }
+
+    @Override
+    public ItemStack chestplate() {
+        return cloneItem(chestplate);
+    }
+
+    @Override
+    public ItemStack leggings() {
+        return cloneItem(leggings);
+    }
+
+    @Override
+    public ItemStack boots() {
+        return cloneItem(boots);
     }
 
     public boolean hasAnyArmorPiece() {
@@ -27,5 +47,9 @@ public record WardrobeSet(
 
     private boolean hasPiece(ItemStack piece) {
         return piece != null && !piece.getType().isAir();
+    }
+
+    private static ItemStack cloneItem(ItemStack itemStack) {
+        return itemStack == null ? null : itemStack.clone();
     }
 }

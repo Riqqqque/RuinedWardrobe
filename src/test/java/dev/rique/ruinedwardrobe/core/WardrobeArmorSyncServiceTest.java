@@ -284,6 +284,7 @@ class WardrobeArmorSyncServiceTest {
         ItemStack item = mock(ItemStack.class);
         ItemStack clone = mock(ItemStack.class);
         when(item.clone()).thenReturn(clone);
+        when(clone.clone()).thenReturn(clone);
         org.bukkit.Material material = mock(org.bukkit.Material.class);
         when(material.isAir()).thenReturn(false);
         when(item.getType()).thenReturn(material);

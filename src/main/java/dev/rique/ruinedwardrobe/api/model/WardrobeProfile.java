@@ -1,6 +1,7 @@
 package dev.rique.ruinedwardrobe.api.model;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -12,7 +13,7 @@ public record WardrobeProfile(
         Map<Integer, WardrobeSet> sets
 ) {
     public WardrobeProfile {
-        sets = sets == null ? Collections.emptyMap() : Collections.unmodifiableMap(sets);
+        sets = sets == null ? Collections.emptyMap() : Collections.unmodifiableMap(new HashMap<>(sets));
     }
 
     public WardrobeSet getSet(int slot) {

@@ -9,7 +9,7 @@
 # - ruinedwardrobe.use: allows base /wardrobe access.
 # - ruinedwardrobe.command.*: grants all non-admin command nodes.
 # - ruinedwardrobe.command.doctor: runtime diagnostics command.
-# - ruinedwardrobe.admin.*: grants all admin command nodes.
+# - ruinedwardrobe.admin.*: grants admin access and non-admin command nodes.
 # - ruinedwardrobe.slots.<n>: grants slot tier (highest node wins).
 # - ruinedwardrobe.bypass.*: bypasses specific protections/restrictions.
 #
@@ -48,8 +48,6 @@ legend:
 # Full command access plus bypass permissions for moderation/support cases.
 admin:
   - ruinedwardrobe.admin.*
-  - ruinedwardrobe.command.*
-  - ruinedwardrobe.command.doctor
   - ruinedwardrobe.bypass.cooldown
   - ruinedwardrobe.bypass.restrictions
   - ruinedwardrobe.bypass.emptycheck

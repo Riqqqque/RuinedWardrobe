@@ -4,7 +4,8 @@ plugins {
 }
 
 group = "dev.rique"
-version = "1.0.1"
+version = "1.0.2"
+val pluginVersion = version.toString()
 
 java {
     toolchain {
@@ -54,7 +55,7 @@ tasks.processResources {
         rename { "LICENSE.txt" }
     }
     filesMatching("plugin.yml") {
-        expand("version" to project.version)
+        expand("version" to pluginVersion)
     }
 }
 
