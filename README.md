@@ -1,5 +1,10 @@
 # RuinedWardrobe
 
+[![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-26.1.1-2f3136)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-25-b07219)](https://adoptium.net/)
+[![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](LICENSE)
+
 RuinedWardrobe is a high-performance Paper/Folia wardrobe plugin built for large Minecraft servers that need a polished armor wardrobe, strict anti-dupe behavior, safe storage, and useful diagnostics when something goes wrong.
 
 It is free to use on any server, including monetized servers. The source and jar can be used, modified, and shared for free, but the plugin itself cannot be resold or commercially redistributed. See [LICENSE](LICENSE).
@@ -22,9 +27,15 @@ It is free to use on any server, including monetized servers. The source and jar
 - Snapshot-based storage migration with digest verification.
 - PlaceholderAPI expansion and optional Vault/combat integration hooks.
 
-## Download And Install
+## Download
 
-1. Download `RuinedWardrobe-1.0.0.jar` from the build output or a GitHub release.
+Latest jar:
+
+[Download RuinedWardrobe](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+
+## Install
+
+1. Download `RuinedWardrobe-1.0.0.jar` from the latest GitHub release.
 2. Put the jar in your server `plugins` folder.
 3. Start the server once so RuinedWardrobe creates its config files.
 4. Edit `plugins/RuinedWardrobe/config.yml`, `gui.yml`, `lang/en_US.yml`, and permissions as needed.
