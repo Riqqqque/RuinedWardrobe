@@ -1,26 +1,28 @@
 # Permissions And Commands
 
+RuinedWardrobe is designed around simple player access, rank-based slot tiers, and staff-only support tools.
+
 ## Player Commands
 
-```text
-/wardrobe
-/rw
-/wardrobe help
-/wardrobe list [player]
-```
+| Command | What it does | Permission |
+| --- | --- | --- |
+| `/wardrobe` | Opens your wardrobe GUI. | `ruinedwardrobe.use` |
+| `/rw` | Alias for `/wardrobe`. | `ruinedwardrobe.use` |
+| `/wardrobe help` | Shows available commands. | `ruinedwardrobe.command.help` |
+| `/wardrobe list [player]` | Lists saved sets for yourself or a known player. | `ruinedwardrobe.command.list` |
 
-## Admin Commands
+## Staff Commands
 
-```text
-/wardrobe doctor
-/wardrobe reload
-/wardrobe migrate <sqlite|mysql> [--dry-run]
-/wardrobe admin open <player>
-/wardrobe admin setslots <player> <amount>
-/wardrobe admin clearslots <player>
-```
+| Command | What it does | Permission |
+| --- | --- | --- |
+| `/wardrobe doctor` | Shows runtime diagnostics. | `ruinedwardrobe.command.doctor` |
+| `/wardrobe reload` | Reloads config, GUI, and language files. | `ruinedwardrobe.command.reload` |
+| `/wardrobe migrate <sqlite|mysql> [--dry-run]` | Migrates storage with snapshot verification. | `ruinedwardrobe.command.migrate` |
+| `/wardrobe admin open <player>` | Opens another online player's wardrobe GUI. | `ruinedwardrobe.admin` |
+| `/wardrobe admin setslots <player> <amount>` | Sets admin bonus slots. | `ruinedwardrobe.admin` |
+| `/wardrobe admin clearslots <player>` | Resets admin bonus slots to `0`. | `ruinedwardrobe.admin` |
 
-## Core Permission Nodes
+## Core Nodes
 
 ```text
 ruinedwardrobe.use
@@ -34,7 +36,17 @@ ruinedwardrobe.admin.*
 ruinedwardrobe.command.*
 ```
 
-## Slot Permission Nodes
+`ruinedwardrobe.admin.*` includes admin access plus doctor, reload, and migrate command nodes.
+
+`ruinedwardrobe.command.*` includes the command nodes, but it does not grant `ruinedwardrobe.admin`.
+
+## Slot Nodes
+
+```text
+ruinedwardrobe.slots.<amount>
+```
+
+Examples:
 
 ```text
 ruinedwardrobe.slots.3
@@ -43,39 +55,47 @@ ruinedwardrobe.slots.9
 ruinedwardrobe.slots.15
 ```
 
-The highest assigned slot permission wins. A player with both `ruinedwardrobe.slots.6` and `ruinedwardrobe.slots.15` gets the 15-slot tier.
-
-Admin bonus slots from `/wardrobe admin setslots` are added after rank slot resolution.
+The highest assigned slot tier wins, then admin bonus slots are added, then `wardrobe.max-slots-cap` is enforced.
 
 ## Bypass Nodes
 
-```text
-ruinedwardrobe.bypass.cooldown
-ruinedwardrobe.bypass.restrictions
-ruinedwardrobe.bypass.emptycheck
-ruinedwardrobe.bypass.combat
-```
+| Permission | Use |
+| --- | --- |
+| `ruinedwardrobe.bypass.cooldown` | Ignores equip cooldown. |
+| `ruinedwardrobe.bypass.restrictions` | Ignores world, gamemode, and placeholder restrictions. |
+| `ruinedwardrobe.bypass.emptycheck` | Allows equip when armor slots would normally need to be empty. |
+| `ruinedwardrobe.bypass.combat` | Ignores combat restriction checks. |
 
-Use bypass nodes carefully. They are meant for staff, testing, and support cases.
+Keep bypass nodes off normal ranks. They are best for staff, testing, and support cases.
+
+## Suggested Rank Layout
+
+| Rank | Nodes |
+| --- | --- |
+| Default | `ruinedwardrobe.use`, `ruinedwardrobe.command.help`, `ruinedwardrobe.command.list`, `ruinedwardrobe.slots.3` |
+| VIP | `ruinedwardrobe.slots.6` |
+| MVP | `ruinedwardrobe.slots.9` |
+| Legend | `ruinedwardrobe.slots.15` |
+| Staff | Staff command nodes plus carefully chosen bypass nodes |
 
 ## LuckPerms Examples
 
-Basic player:
+Default players:
 
 ```text
 /lp group default permission set ruinedwardrobe.use true
 /lp group default permission set ruinedwardrobe.command.help true
 /lp group default permission set ruinedwardrobe.command.list true
-/lp group default permission set ruinedwardrobe.slots.8 true
+/lp group default permission set ruinedwardrobe.slots.3 true
 ```
 
-VIP:
+VIP slot tier:
 
 ```text
-/lp group vip permission set ruinedwardrobe.slots.15 true
+/lp group vip permission set ruinedwardrobe.slots.6 true
 ```
 
-Admin:
+Admin tools:
 
 ```text
 /lp group admin permission set ruinedwardrobe.admin.* true
@@ -83,10 +103,12 @@ Admin:
 /lp group admin permission set ruinedwardrobe.bypass.cooldown true
 ```
 
-## Recommended Rank Strategy
+## Common Permission Fixes
 
-- Give every player `ruinedwardrobe.use`.
-- Give one slot tier per rank.
-- Avoid stacking many slot tier nodes unless intentional.
-- Keep bypass nodes off normal ranks.
-- Use admin bonus slots for temporary support adjustments instead of making one-off permission nodes.
+| Problem | Check |
+| --- | --- |
+| Player cannot open `/wardrobe` | They need `ruinedwardrobe.use`. |
+| Player sees too few slots | Check their highest `ruinedwardrobe.slots.<amount>` node and `wardrobe.max-slots-cap`. |
+| Staff cannot run `/wardrobe doctor` | Add `ruinedwardrobe.command.doctor` or `ruinedwardrobe.command.*`. |
+| Staff cannot open another player's wardrobe | Add `ruinedwardrobe.admin` or `ruinedwardrobe.admin.*`. |
+| Player bypasses world/combat rules | Remove bypass nodes from that rank. |

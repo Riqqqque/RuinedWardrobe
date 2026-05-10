@@ -129,9 +129,12 @@ Start with the wiki-style docs:
 - [Configuration Guide](docs/wiki/Configuration.md)
 - [Permissions And Commands](docs/wiki/Permissions-And-Commands.md)
 - [GUI And Language Customization](docs/wiki/GUI-And-Language-Customization.md)
+- [Placeholders And Integrations](docs/wiki/Placeholders-And-Integrations.md)
 - [Storage, Migration, And Backups](docs/wiki/Storage-Migration-And-Backups.md)
 - [Audit Logs And Troubleshooting](docs/wiki/Audit-Logs-And-Troubleshooting.md)
+- [Upgrade And Release Checklist](docs/wiki/Upgrade-And-Release-Checklist.md)
 - [License And Server Monetization](docs/wiki/License-And-Server-Monetization.md)
+- [FAQ](docs/wiki/FAQ.md)
 
 Reference docs:
 
