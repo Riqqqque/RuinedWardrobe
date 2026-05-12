@@ -30,7 +30,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
     implementation("com.zaxxer:HikariCP:5.1.0")
     implementation("org.xerial:sqlite-jdbc:3.46.1.3")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("org.bstats:bstats-bukkit:3.1.0")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
