@@ -6,6 +6,8 @@ plugins {
 group = "dev.rique"
 version = "1.0.4"
 val pluginVersion = version.toString()
+val hangarMaxUploadBytes = 15L * 1024L * 1024L
+val shadedJarFile = layout.buildDirectory.file("libs/${rootProject.name}-$pluginVersion.jar")
 
 java {
     toolchain {
@@ -59,11 +61,47 @@ tasks.processResources {
     }
 }
 
+tasks.jar {
+    archiveClassifier.set("plain")
+}
+
 tasks.shadowJar {
     archiveClassifier.set("")
+    exclude("org/sqlite/native/FreeBSD/**")
+    exclude("org/sqlite/native/Linux/x86/**")
+    exclude("org/sqlite/native/Linux/arm/**")
+    exclude("org/sqlite/native/Linux/armv6/**")
+    exclude("org/sqlite/native/Linux/armv7/**")
+    exclude("org/sqlite/native/Linux/ppc64/**")
+    exclude("org/sqlite/native/Linux/riscv64/**")
+    exclude("org/sqlite/native/Linux-Android/**")
+    exclude("org/sqlite/native/Linux-Musl/x86/**")
+    exclude("org/sqlite/native/Windows/x86/**")
+    exclude("org/sqlite/native/Windows/armv7/**")
     relocate("org.bstats", "dev.rique.ruinedwardrobe.libs.bstats")
+}
+
+tasks.register("checkHangarUploadSize") {
+    dependsOn(tasks.shadowJar)
+    doLast {
+        val jarFile = shadedJarFile.get().asFile
+        check(jarFile.isFile) { "Missing shaded jar: ${jarFile.absolutePath}" }
+        val size = jarFile.length()
+        check(size < hangarMaxUploadBytes) {
+            "Shaded jar is ${"%,d".format(size)} bytes; Hangar requires less than ${"%,d".format(hangarMaxUploadBytes)} bytes."
+        }
+    }
+}
+
+tasks.register<Copy>("copyStableJar") {
+    dependsOn(tasks.shadowJar)
+    from(shadedJarFile)
+    into(layout.buildDirectory.dir("libs"))
+    rename { "${rootProject.name}.jar" }
 }
 
 tasks.build {
     dependsOn(tasks.shadowJar)
+    dependsOn(tasks.named("copyStableJar"))
+    dependsOn(tasks.named("checkHangarUploadSize"))
 }
