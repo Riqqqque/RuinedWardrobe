@@ -6,7 +6,7 @@ plugins {
 group = "dev.rique"
 version = "1.0.4"
 val pluginVersion = version.toString()
-val hangarMaxUploadBytes = 15L * 1024L * 1024L
+val hangarMaxUploadBytes = 10_000_000L
 val shadedJarFile = layout.buildDirectory.file("libs/${rootProject.name}-$pluginVersion.jar")
 
 java {
@@ -76,6 +76,7 @@ tasks.shadowJar {
     exclude("org/sqlite/native/Linux/riscv64/**")
     exclude("org/sqlite/native/Linux-Android/**")
     exclude("org/sqlite/native/Linux-Musl/x86/**")
+    exclude("org/sqlite/native/Windows/aarch64/**")
     exclude("org/sqlite/native/Windows/x86/**")
     exclude("org/sqlite/native/Windows/armv7/**")
     relocate("org.bstats", "dev.rique.ruinedwardrobe.libs.bstats")
