@@ -176,10 +176,19 @@ public final class WardrobeGuiController {
             return;
         }
 
-        wardrobeService.setArmorPiece(session.targetId(), wardrobeSlot, piece.key(), consumed)
-                .thenAccept(result -> runForViewer(viewer, () -> {
+        wardrobeService.getProfile(session.targetId())
+                .thenCompose(profile -> {
+                    WardrobeSet set = profile.getSet(wardrobeSlot);
+                    ItemStack replaced = set == null ? null : piece.read(set);
+                    return wardrobeService.setArmorPiece(session.targetId(), wardrobeSlot, piece.key(), consumed)
+                            .thenApply(result -> new ArmorPlaceResult(result, replaced));
+                })
+                .thenAccept(placeResult -> runForViewer(viewer, () -> {
+                    WardrobeResult result = placeResult.result();
                     if (!result.isSuccess()) {
                         restoreCursorItem(viewer, consumed);
+                    } else {
+                        giveToCursorOrInventory(viewer, placeResult.replacedItem());
                     }
                     applyFeedback(viewer, result);
                     endAction(viewer);
@@ -217,18 +226,11 @@ public final class WardrobeGuiController {
                 return;
             }
 
-            // Check if player has room in inventory
-            if (viewer.getInventory().firstEmpty() == -1) {
-                messageService.send(viewer, "error.inventory-full", Map.of());
-                endAction(viewer);
-                return;
-            }
-
             ItemStack reward = resolvePickupReward(viewer, session.targetId(), wardrobeSlot, piece, armorPiece);
             wardrobeService.clearArmorPiece(session.targetId(), wardrobeSlot, piece.key())
                     .thenAccept(result -> runForViewer(viewer, () -> {
                         if (result.isSuccess()) {
-                            giveOrDrop(viewer, reward);
+                            giveToCursorOrInventory(viewer, reward);
                         }
                         applyFeedback(viewer, result);
                         endAction(viewer);
@@ -607,6 +609,18 @@ public final class WardrobeGuiController {
         return live;
     }
 
+    private void giveToCursorOrInventory(Player viewer, ItemStack itemStack) {
+        if (itemStack == null || itemStack.getType().isAir()) {
+            return;
+        }
+        ItemStack cursor = viewer.getItemOnCursor();
+        if (cursor == null || cursor.getType().isAir()) {
+            viewer.setItemOnCursor(itemStack.clone());
+            return;
+        }
+        giveOrDrop(viewer, itemStack);
+    }
+
     private void restoreCursorItem(Player viewer, ItemStack itemStack) {
         if (itemStack == null || itemStack.getType().isAir()) {
             return;
@@ -673,6 +687,9 @@ public final class WardrobeGuiController {
 
     private void endAction(Player viewer) {
         pendingActions.remove(viewer.getUniqueId());
+    }
+
+    private record ArmorPlaceResult(WardrobeResult result, ItemStack replacedItem) {
     }
 
     private enum ArmorPiece {

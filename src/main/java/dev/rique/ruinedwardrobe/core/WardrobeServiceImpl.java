@@ -201,17 +201,21 @@ public final class WardrobeServiceImpl implements WardrobeService {
             ArmorRuntimeState previousState = captureArmorRuntimeState(player);
             PlayerInventory inventory = player.getInventory();
             clearOwnedBoundArmor(inventory, playerId);
-            if (set.helmet() != null && !set.helmet().getType().isAir()) {
-                inventory.setHelmet(bindingService.bindCopy(set.helmet(), playerId, slot, "helmet"));
+            ItemStack helmet = set.helmet();
+            ItemStack chestplate = set.chestplate();
+            ItemStack leggings = set.leggings();
+            ItemStack boots = set.boots();
+            if (hasPiece(helmet)) {
+                inventory.setHelmet(bindingService.bindCopy(helmet, playerId, slot, "helmet"));
             }
-            if (set.chestplate() != null && !set.chestplate().getType().isAir()) {
-                inventory.setChestplate(bindingService.bindCopy(set.chestplate(), playerId, slot, "chestplate"));
+            if (hasPiece(chestplate)) {
+                inventory.setChestplate(bindingService.bindCopy(chestplate, playerId, slot, "chestplate"));
             }
-            if (set.leggings() != null && !set.leggings().getType().isAir()) {
-                inventory.setLeggings(bindingService.bindCopy(set.leggings(), playerId, slot, "leggings"));
+            if (hasPiece(leggings)) {
+                inventory.setLeggings(bindingService.bindCopy(leggings, playerId, slot, "leggings"));
             }
-            if (set.boots() != null && !set.boots().getType().isAir()) {
-                inventory.setBoots(bindingService.bindCopy(set.boots(), playerId, slot, "boots"));
+            if (hasPiece(boots)) {
+                inventory.setBoots(bindingService.bindCopy(boots, playerId, slot, "boots"));
             }
             bindingService.setActiveSlot(playerId, slot);
             return EquipAttempt.mutated(
@@ -368,32 +372,29 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     private Map<String, String> firstNonEmptyAffectedSlot(Player player, WardrobeSet set) {
         PlayerInventory inventory = player.getInventory();
-        if (set.helmet() != null
-                && !set.helmet().getType().isAir()
-                && inventory.getHelmet() != null
-                && !inventory.getHelmet().getType().isAir()
-                && !bindingService.isBoundTo(inventory.getHelmet(), player.getUniqueId())) {
+        ItemStack helmet = set.helmet();
+        ItemStack chestplate = set.chestplate();
+        ItemStack leggings = set.leggings();
+        ItemStack boots = set.boots();
+        ItemStack equippedHelmet = inventory.getHelmet();
+        ItemStack equippedChestplate = inventory.getChestplate();
+        ItemStack equippedLeggings = inventory.getLeggings();
+        ItemStack equippedBoots = inventory.getBoots();
+        UUID playerId = player.getUniqueId();
+        if (hasPiece(helmet) && hasPiece(equippedHelmet) && !bindingService.isBoundTo(equippedHelmet, playerId)) {
             return Map.of("slot", "helmet");
         }
-        if (set.chestplate() != null
-                && !set.chestplate().getType().isAir()
-                && inventory.getChestplate() != null
-                && !inventory.getChestplate().getType().isAir()
-                && !bindingService.isBoundTo(inventory.getChestplate(), player.getUniqueId())) {
+        if (hasPiece(chestplate)
+                && hasPiece(equippedChestplate)
+                && !bindingService.isBoundTo(equippedChestplate, playerId)) {
             return Map.of("slot", "chestplate");
         }
-        if (set.leggings() != null
-                && !set.leggings().getType().isAir()
-                && inventory.getLeggings() != null
-                && !inventory.getLeggings().getType().isAir()
-                && !bindingService.isBoundTo(inventory.getLeggings(), player.getUniqueId())) {
+        if (hasPiece(leggings)
+                && hasPiece(equippedLeggings)
+                && !bindingService.isBoundTo(equippedLeggings, playerId)) {
             return Map.of("slot", "leggings");
         }
-        if (set.boots() != null
-                && !set.boots().getType().isAir()
-                && inventory.getBoots() != null
-                && !inventory.getBoots().getType().isAir()
-                && !bindingService.isBoundTo(inventory.getBoots(), player.getUniqueId())) {
+        if (hasPiece(boots) && hasPiece(equippedBoots) && !bindingService.isBoundTo(equippedBoots, playerId)) {
             return Map.of("slot", "boots");
         }
         return Map.of();

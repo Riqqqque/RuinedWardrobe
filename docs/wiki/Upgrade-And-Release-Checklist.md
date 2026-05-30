@@ -80,7 +80,7 @@ For local source builds on Windows:
 Expected jar:
 
 ```text
-build/libs/RuinedWardrobe-1.0.3.jar
+build/libs/RuinedWardrobe-1.0.4.jar
 ```
 
 Check these before sending a jar to anyone:
