@@ -96,7 +96,7 @@ public final class WardrobeArmorSyncService {
             schedulerAdapter.runPlayer(player, () -> {
                 try {
                     PlayerArmorSnapshot snapshot = captureSnapshot(player, true);
-                    persistSnapshot(snapshot, true).whenComplete((ignored, throwable) -> {
+                    wardrobeService.runExclusive(playerId, () -> persistSnapshotUnlocked(snapshot, true)).whenComplete((ignored, throwable) -> {
                         if (throwable != null) {
                             plugin.getLogger().warning("Armor sync failed for " + player.getName() + ": " + throwable.getMessage());
                             auditLogger.error(
@@ -137,14 +137,15 @@ public final class WardrobeArmorSyncService {
             CompletableFuture<Void> previousSync = pending == null
                     ? CompletableFuture.completedFuture(null)
                     : pending.completion().exceptionally(ignored -> null);
-            return previousSync.thenCompose(ignored -> persistSnapshot(snapshot, false));
+            return previousSync.thenCompose(
+                    ignored -> wardrobeService.runExclusive(snapshot.playerId(), () -> persistSnapshotUnlocked(snapshot, false)));
         } catch (Throwable throwable) {
             return CompletableFuture.failedFuture(throwable);
         }
     }
 
     public CompletableFuture<Void> clearSelectedSlot(UUID playerId) {
-        return clearSelectedSlot(playerId, true);
+        return wardrobeService.runExclusive(playerId, () -> clearSelectedSlotUnlocked(playerId, true));
     }
 
     public CompletableFuture<Void> handleDeath(Player player, boolean keepInventory, List<ItemStack> drops) {
@@ -171,35 +172,37 @@ public final class WardrobeArmorSyncService {
                 ? CompletableFuture.completedFuture(null)
                 : pending.completion().exceptionally(ignored -> null);
 
-        return previousSync.thenCompose(ignored -> wardrobeService.getProfile(playerId)).thenCompose(profile -> {
-            List<CompletableFuture<Void>> writes = new ArrayList<>();
-            for (Map.Entry<Integer, Set<String>> entry : lostPiecesBySlot.entrySet()) {
-                WardrobeSet existing = profile.getSet(entry.getKey());
-                if (existing == null) {
-                    continue;
-                }
-                WardrobeSet updated = removeLostPieces(existing, entry.getValue());
-                CompletableFuture<Void> writeFuture = updated.hasAnyArmorPiece()
-                        ? repository.saveSet(profile.playerId(), updated)
-                        : repository.deleteSet(profile.playerId(), updated.slot());
-                writes.add(writeFuture);
-            }
+        return previousSync.thenCompose(ignored -> wardrobeService.runExclusive(playerId, () ->
+                wardrobeService.getProfile(playerId).thenCompose(profile -> {
+                    List<CompletableFuture<Void>> writes = new ArrayList<>();
+                    for (Map.Entry<Integer, Set<String>> entry : lostPiecesBySlot.entrySet()) {
+                        WardrobeSet existing = profile.getSet(entry.getKey());
+                        if (existing == null) {
+                            continue;
+                        }
+                        WardrobeSet updated = removeLostPieces(existing, entry.getValue());
+                        CompletableFuture<Void> writeFuture = updated.hasAnyArmorPiece()
+                                ? repository.saveSet(profile.playerId(), updated)
+                                : repository.deleteSet(profile.playerId(), updated.slot());
+                        writes.add(writeFuture);
+                    }
 
-            CompletableFuture<Void> writesFuture = writes.isEmpty()
-                    ? CompletableFuture.completedFuture(null)
-                    : CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
-
-            return writesFuture
-                    .thenCompose(ignored -> profile.selectedSlot() < 1
+                    CompletableFuture<Void> writesFuture = writes.isEmpty()
                             ? CompletableFuture.completedFuture(null)
-                            : repository.setSelectedSlot(profile.playerId(), -1))
-                    .thenCompose(ignored -> refreshProfile(profile.playerId(), true))
-                    .thenRun(() -> auditLogger.record(
-                            "DEATH_VANILLA_LOSS",
-                            playerId,
-                            player.getName(),
-                            Map.of("affectedSlots", affectedSlots, "lostPieces", lostPieces)));
-        });
+                            : CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
+
+                    return writesFuture
+                            .thenCompose(next -> profile.selectedSlot() < 1
+                                    ? CompletableFuture.completedFuture(null)
+                                    : repository.setSelectedSlot(profile.playerId(), -1))
+                            .thenCompose(next -> refreshProfile(profile.playerId(), true))
+                            .thenRun(() -> auditLogger.record(
+                                    "DEATH_VANILLA_LOSS",
+                                    playerId,
+                                    player.getName(),
+                                    Map.of("affectedSlots", affectedSlots, "lostPieces", lostPieces)));
+                }
+                )));
     }
 
     public CompletableFuture<Void> flushOnlinePlayers() {
@@ -269,6 +272,10 @@ public final class WardrobeArmorSyncService {
     }
 
     private CompletableFuture<Void> clearSelectedSlot(UUID playerId, boolean refreshCache) {
+        return wardrobeService.runExclusive(playerId, () -> clearSelectedSlotUnlocked(playerId, refreshCache));
+    }
+
+    private CompletableFuture<Void> clearSelectedSlotUnlocked(UUID playerId, boolean refreshCache) {
         bindingService.clearActiveSlot(playerId);
         return wardrobeService.getProfile(playerId).thenCompose(profile -> {
             if (profile.selectedSlot() < 1) {
@@ -306,12 +313,12 @@ public final class WardrobeArmorSyncService {
                 boundPieceCopy(player.getInventory().getBoots(), playerId, activeSlot));
     }
 
-    private CompletableFuture<Void> persistSnapshot(PlayerArmorSnapshot snapshot, boolean refreshCache) {
+    private CompletableFuture<Void> persistSnapshotUnlocked(PlayerArmorSnapshot snapshot, boolean refreshCache) {
         if (snapshot == null) {
             return CompletableFuture.completedFuture(null);
         }
         if (snapshot.activeSlot() < 1) {
-            return clearSelectedSlot(snapshot.playerId(), refreshCache);
+            return clearSelectedSlotUnlocked(snapshot.playerId(), refreshCache);
         }
         return wardrobeService.getProfile(snapshot.playerId())
                 .thenCompose(profile -> persistIfChanged(

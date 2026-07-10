@@ -138,8 +138,7 @@ public final class PluginConfig {
 
         ConfigurationSection metrics = config.getConfigurationSection("metrics");
         MetricsSettings metricsSettings = new MetricsSettings(
-                metrics != null && metrics.getBoolean("enabled", false),
-                metrics == null ? 0 : metrics.getInt("plugin-id", 0));
+                metrics == null || metrics.getBoolean("enabled", true));
 
         ConfigurationSection integrations = config.getConfigurationSection("integrations");
         IntegrationSettings integrationSettings = new IntegrationSettings(
@@ -443,7 +442,7 @@ public final class PluginConfig {
     public record PlaceholderRule(String placeholder, Set<String> disallowValues, String reasonKey) {
     }
 
-    public record MetricsSettings(boolean enabled, int pluginId) {
+    public record MetricsSettings(boolean enabled) {
     }
 
     public record IntegrationSettings(boolean placeholderApiEnabled, boolean vaultEnabled, boolean combatEnabled) {

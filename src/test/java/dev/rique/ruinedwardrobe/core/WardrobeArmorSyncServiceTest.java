@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -274,6 +275,10 @@ class WardrobeArmorSyncServiceTest {
             WardrobeArmorBindingService bindingService,
             boolean keepWardrobeOnDeath
     ) {
+        when(wardrobeService.runExclusive(any(UUID.class), any())).thenAnswer(invocation -> {
+            Supplier<CompletableFuture<Void>> operation = invocation.getArgument(1);
+            return operation.get();
+        });
         return new WardrobeArmorSyncService(plugin, schedulerAdapter, repository, wardrobeService, bindingService,
                 new PluginConfig.ArmorSyncSettings(true, 40L, 500, 10L),
                 new PluginConfig.DeathSettings(keepWardrobeOnDeath),

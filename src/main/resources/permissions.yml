@@ -9,6 +9,7 @@
 # - ruinedwardrobe.use: allows base /wardrobe access.
 # - ruinedwardrobe.command.*: grants all non-admin command nodes.
 # - ruinedwardrobe.command.doctor: runtime diagnostics command.
+# - ruinedwardrobe.command.rename: lets players rename their own saved sets.
 # - ruinedwardrobe.admin.*: grants admin access and non-admin command nodes.
 # - ruinedwardrobe.slots.<n>: grants slot tier (highest node wins).
 # - ruinedwardrobe.bypass.*: bypasses specific protections/restrictions.
@@ -29,6 +30,7 @@ default-player:
   - ruinedwardrobe.use
   - ruinedwardrobe.command.help
   - ruinedwardrobe.command.list
+  - ruinedwardrobe.command.rename
   - ruinedwardrobe.slots.3
 
 # Mid-tier rank example.

@@ -34,7 +34,7 @@ When a schema changes, copy your old custom values into the new generated file i
 | `restrictions` | Server-specific | Add world, gamemode, combat, or PlaceholderAPI blocks. |
 | `integrations` | Server-specific | Enable only hooks that exist on the server. |
 | `anti-dupe` | Server-specific | Test strict container lock before production use. |
-| `metrics` | Optional | Enable only after setting a bStats plugin id. |
+| `metrics` | Optional | Keep enabled to send anonymous bStats usage metrics, or disable it locally. |
 | `debug` | Temporary | Use for troubleshooting, then turn it off. |
 
 ## Slots And Pages
@@ -270,12 +270,13 @@ When true, players wearing wardrobe-bound armor cannot interact with non-player 
 
 ```yaml
 metrics:
-  enabled: false
-  plugin-id: 0
+  enabled: true
 
 debug:
   enabled: false
 ```
+
+RuinedWardrobe only uses bStats' default anonymous server/plugin metrics. It does not send player names, chat, world data, inventories, database contents, or server addresses. Server owners can disable this plugin's metrics here, or opt out globally in `plugins/bStats/config.yml`.
 
 Enable debug only for short troubleshooting windows. It is not meant to stay on in normal production.
 

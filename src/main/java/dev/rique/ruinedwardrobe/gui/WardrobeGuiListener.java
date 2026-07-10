@@ -23,11 +23,12 @@ public final class WardrobeGuiListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (event.getClickedInventory() == null) {
-            return;
-        }
-
         if (event.getInventory().getHolder() instanceof WardrobeMenuHolder holder) {
+            if (event.getClickedInventory() == null) {
+                event.setCancelled(true);
+                return;
+            }
+
             // Bottom inventory remains player-controlled, except quick-move which can bypass GUI rules.
             if (event.getClickedInventory() == player.getInventory()) {
                 if (event.getClick().isShiftClick()

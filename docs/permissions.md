@@ -4,6 +4,7 @@
 - `ruinedwardrobe.use`: Access `/wardrobe` and `/rw`.
 - `ruinedwardrobe.command.help`: Use `/wardrobe help`.
 - `ruinedwardrobe.command.list`: Use `/wardrobe list [player]`.
+- `ruinedwardrobe.command.rename`: Use `/wardrobe rename <slot> <name>`.
 - `ruinedwardrobe.command.doctor`: Use `/wardrobe doctor`.
 - `ruinedwardrobe.command.reload`: Use `/wardrobe reload`.
 - `ruinedwardrobe.command.migrate`: Use `/wardrobe migrate ...`.

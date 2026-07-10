@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -38,6 +37,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,9 +56,11 @@ class WardrobeGuiControllerTest {
         when(fixture.wardrobeService.getProfile(fixture.playerId))
                 .thenReturn(CompletableFuture.completedFuture(profile))
                 .thenReturn(refreshProfile);
-        when(fixture.wardrobeService.clearArmorPiece(fixture.playerId, 3, "chestplate"))
+        when(fixture.wardrobeService.takeArmorPiece(fixture.playerId, 3, "chestplate"))
                 .thenReturn(CompletableFuture.completedFuture(
-                        new WardrobeResult(ResultCode.SUCCESS, "success.armor-taken", Map.of())));
+                        new WardrobeServiceImpl.ArmorPieceMutationResult(
+                                new WardrobeResult(ResultCode.SUCCESS, "success.armor-taken", Map.of()),
+                                savedChestplate)));
 
         fixture.controller.handleMainClick(
                 fixture.player,
@@ -75,13 +77,12 @@ class WardrobeGuiControllerTest {
     }
 
     @Test
-    void placingArmorOverSavedPieceReturnsPreviousPieceToCursor() {
+    void placingArmorIntoEmptyPieceConsumesCursorAndStoresItem() {
         Fixture fixture = new Fixture();
         ItemStack newChestplate = item();
-        ItemStack oldChestplate = item();
         AtomicReference<ItemStack> cursor = new AtomicReference<>(newChestplate);
         WardrobeProfile profile = profileWithSet(fixture.playerId, 3,
-                new WardrobeSet(3, "Slot 3", false, null, oldChestplate, null, null));
+                new WardrobeSet(3, "Slot 3", false, null, null, null, null));
 
         when(fixture.player.getItemOnCursor()).thenAnswer(ignored -> cursor.get());
         doAnswer(invocation -> {
@@ -92,9 +93,11 @@ class WardrobeGuiControllerTest {
         when(fixture.wardrobeService.getProfile(fixture.playerId))
                 .thenReturn(CompletableFuture.completedFuture(profile))
                 .thenReturn(refreshProfile);
-        when(fixture.wardrobeService.setArmorPiece(eq(fixture.playerId), eq(3), eq("chestplate"), any(ItemStack.class)))
+        when(fixture.wardrobeService.placeArmorPieceIfEmpty(eq(fixture.playerId), eq(3), eq("chestplate"), any(ItemStack.class)))
                 .thenReturn(CompletableFuture.completedFuture(
-                        new WardrobeResult(ResultCode.SUCCESS, "success.armor-placed", Map.of())));
+                        new WardrobeServiceImpl.ArmorPieceMutationResult(
+                                new WardrobeResult(ResultCode.SUCCESS, "success.armor-placed", Map.of()),
+                                null)));
 
         try (MockedStatic<ArmorPieceMatcher> matcher = mockStatic(ArmorPieceMatcher.class)) {
             matcher.when(() -> ArmorPieceMatcher.matchesWardrobePiece(eq("chestplate"), any(Material.class)))
@@ -107,14 +110,102 @@ class WardrobeGuiControllerTest {
         }
 
         ArgumentCaptor<ItemStack> storedItem = ArgumentCaptor.forClass(ItemStack.class);
-        verify(fixture.wardrobeService).setArmorPiece(
+        verify(fixture.wardrobeService).placeArmorPieceIfEmpty(
                 eq(fixture.playerId),
                 eq(3),
                 eq("chestplate"),
                 storedItem.capture());
         assertSame(newChestplate, storedItem.getValue());
-        assertNotNull(cursor.get());
-        assertSame(oldChestplate, cursor.get());
+        verify(fixture.player).setItemOnCursor(null);
+    }
+
+    @Test
+    void placingArmorOverSavedPieceIsDeniedBeforeConsumingCursor() {
+        Fixture fixture = new Fixture();
+        ItemStack newChestplate = item();
+        ItemStack oldChestplate = item();
+        WardrobeProfile profile = profileWithSet(fixture.playerId, 3,
+                new WardrobeSet(3, "Slot 3", false, null, oldChestplate, null, null));
+
+        when(fixture.player.getItemOnCursor()).thenReturn(newChestplate);
+        when(fixture.wardrobeService.getProfile(fixture.playerId))
+                .thenReturn(CompletableFuture.completedFuture(profile));
+
+        try (MockedStatic<ArmorPieceMatcher> matcher = mockStatic(ArmorPieceMatcher.class)) {
+            matcher.when(() -> ArmorPieceMatcher.matchesWardrobePiece(eq("chestplate"), any(Material.class)))
+                    .thenReturn(true);
+
+            fixture.controller.handleMainClick(
+                    fixture.player,
+                    fixture.holder(9, 3),
+                    fixture.clickEvent(9, ClickType.LEFT));
+        }
+
+        verify(fixture.wardrobeService, never()).placeArmorPieceIfEmpty(
+                eq(fixture.playerId),
+                eq(3),
+                eq("chestplate"),
+                any(ItemStack.class));
+        verify(fixture.player, never()).setItemOnCursor(nullable(ItemStack.class));
+        verify(fixture.messageService).send(
+                eq(fixture.player),
+                eq("error.armor-slot-not-empty"),
+                eq(Map.of("slot", "chestplate")));
+    }
+
+    @Test
+    void pendingEquipClickDoesNotStartSecondEquipMutation() {
+        Fixture fixture = new Fixture();
+        CompletableFuture<WardrobeResult> pendingEquip = new CompletableFuture<>();
+        when(fixture.guiConfig.equipButtonSlots()).thenReturn(List.of(4));
+        when(fixture.wardrobeService.equipSet(fixture.playerId, 3)).thenReturn(pendingEquip);
+
+        WardrobeMenuHolder holder = fixture.holder(4, 3);
+        fixture.controller.handleMainClick(
+                fixture.player,
+                holder,
+                fixture.clickEvent(4, ClickType.LEFT));
+        fixture.controller.handleMainClick(
+                fixture.player,
+                holder,
+                fixture.clickEvent(4, ClickType.LEFT));
+
+        verify(fixture.wardrobeService, times(1)).equipSet(fixture.playerId, 3);
+    }
+
+    @Test
+    void pickupRestoresPieceWhenViewerDisconnectsBeforeDelivery() {
+        Fixture fixture = new Fixture();
+        ItemStack savedChestplate = item();
+        WardrobeProfile profile = profileWithSet(fixture.playerId, 3,
+                new WardrobeSet(3, "Slot 3", false, null, savedChestplate, null, null));
+
+        when(fixture.player.isOnline()).thenReturn(false);
+        when(fixture.wardrobeService.getProfile(fixture.playerId))
+                .thenReturn(CompletableFuture.completedFuture(profile));
+        when(fixture.wardrobeService.takeArmorPiece(fixture.playerId, 3, "chestplate"))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new WardrobeServiceImpl.ArmorPieceMutationResult(
+                                new WardrobeResult(ResultCode.SUCCESS, "success.armor-taken", Map.of()),
+                                savedChestplate)));
+        when(fixture.wardrobeService.restoreArmorPieceIfEmpty(
+                eq(fixture.playerId),
+                eq(3),
+                eq("chestplate"),
+                eq(savedChestplate)))
+                .thenReturn(CompletableFuture.completedFuture(true));
+
+        fixture.controller.handleMainClick(
+                fixture.player,
+                fixture.holder(9, 3),
+                fixture.clickEvent(9, ClickType.LEFT));
+
+        verify(fixture.wardrobeService).restoreArmorPieceIfEmpty(
+                fixture.playerId,
+                3,
+                "chestplate",
+                savedChestplate);
+        verify(fixture.player, never()).setItemOnCursor(any());
     }
 
     private static WardrobeProfile profileWithSet(UUID playerId, int slot, WardrobeSet set) {

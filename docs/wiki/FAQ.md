@@ -10,7 +10,7 @@ Java `21+`.
 
 ## What Paper API is this built for?
 
-The project targets Paper API `1.21` and supports Paper/Folia `1.21` through `26.1.2`.
+The project targets Paper API `1.21` and supports Paper/Folia `1.21` through `26.2`.
 
 ## Should I use SQLite or MySQL?
 
@@ -38,7 +38,7 @@ When `anti-dupe.strict-container-lock` is true, players wearing wardrobe-bound a
 
 ## Why do placeholders return empty?
 
-PlaceholderAPI values come from the in-memory profile cache. If the player profile has not loaded yet, the placeholder returns an empty string. Opening `/wardrobe` loads it, or you can enable join preload.
+Most PlaceholderAPI values come from the in-memory profile cache. If the player profile has not loaded yet, saved-set placeholders return an empty string. Opening `/wardrobe` loads the profile, or you can enable join preload. Basic status placeholders such as open state, max slots, and cooldown do not need the profile cache.
 
 ## Why did migration stop because the target has data?
 

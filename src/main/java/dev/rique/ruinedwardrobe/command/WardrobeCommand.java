@@ -38,6 +38,28 @@ import java.util.stream.Collectors;
 
 public final class WardrobeCommand implements CommandExecutor, TabCompleter {
 
+    private static final List<String> COMPATIBILITY_PLUGIN_NAMES = List.of(
+            "PlaceholderAPI",
+            "Vault",
+            "LuckPerms",
+            "WorldGuard",
+            "ItemsAdder",
+            "Oraxen",
+            "Nexo",
+            "MythicMobs",
+            "MMOItems",
+            "ExecutableItems",
+            "EcoItems",
+            "CraftEngine",
+            "ModelEngine",
+            "Citizens",
+            "LibsDisguises",
+            "PremiumVanish",
+            "SuperVanish",
+            "CMI",
+            "GadgetsMenu",
+            "HMCCosmetics");
+
     private final JavaPlugin plugin;
     private final LanguageRegistry languageRegistry;
     private final MessageService messageService;
@@ -100,6 +122,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "help" -> handleHelp(sender, label);
             case "list" -> handleList(sender, args);
+            case "rename" -> handleRename(sender, args);
             case "doctor" -> handleDoctor(sender);
             case "reload" -> handleReload(sender);
             case "migrate" -> handleMigrate(sender, args);
@@ -122,6 +145,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
         messageService.send(sender, "help.open", placeholders);
         if (PermissionNodes.has(sender, "command.list")) {
             messageService.send(sender, "help.list", placeholders);
+        }
+        if (PermissionNodes.has(sender, "command.rename")) {
+            messageService.send(sender, "help.rename", placeholders);
         }
         if (PermissionNodes.has(sender, "command.doctor")) {
             messageService.send(sender, "help.doctor", placeholders);
@@ -170,6 +196,35 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    private void handleRename(CommandSender sender, String[] args) {
+        if (!PermissionNodes.has(sender, "command.rename")) {
+            messageService.send(sender, "error.no-permission");
+            return;
+        }
+        if (!(sender instanceof Player player)) {
+            messageService.send(sender, "error.player-only");
+            return;
+        }
+        if (args.length < 3) {
+            messageService.send(sender, "usage.rename");
+            return;
+        }
+        int slot;
+        try {
+            slot = Integer.parseInt(args[1]);
+        } catch (NumberFormatException ex) {
+            messageService.send(sender, "error.invalid-number", Map.of("value", args[1]));
+            return;
+        }
+        String newName = joinArgs(args, 2);
+        wardrobeService.renameSet(player.getUniqueId(), slot, newName)
+                .thenAccept(result -> runForSender(sender, () -> messageService.send(sender, result.messageKey(), result.placeholders())))
+                .exceptionally(ex -> {
+                    sendStorageError(sender, ex);
+                    return null;
+                });
+    }
+
     private void handleReload(CommandSender sender) {
         if (!PermissionNodes.has(sender, "command.reload")) {
             messageService.send(sender, "error.no-permission");
@@ -209,6 +264,8 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                 "poll_ms", String.valueOf(versionSyncService.lastPollMs()),
                 "poll_seconds", String.valueOf(pluginConfig.syncSettings().pollSeconds()),
                 "batch", String.valueOf(pluginConfig.syncSettings().batchSize())));
+        messageService.send(sender, "doctor.compatibility", Map.of(
+                "plugins", detectedCompatibilityPlugins()));
         databaseManager.runQuery(connection -> {
             try (var statement = connection.prepareStatement("SELECT 1")) {
                 statement.execute();
@@ -483,6 +540,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             if (PermissionNodes.has(sender, "command.list")) {
                 roots.add("list");
             }
+            if (PermissionNodes.has(sender, "command.rename")) {
+                roots.add("rename");
+            }
             if (PermissionNodes.has(sender, "command.doctor")) {
                 roots.add("doctor");
             }
@@ -501,6 +561,9 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "admin" -> PermissionNodes.has(sender, "admin")
                         ? filterByPrefix(List.of("open", "setslots", "clearslots"), args[1])
+                        : List.of();
+                case "rename" -> PermissionNodes.has(sender, "command.rename")
+                        ? filterByPrefix(slotSuggestions(sender), args[1])
                         : List.of();
                 case "migrate" -> PermissionNodes.has(sender, "command.migrate")
                         ? filterByPrefix(List.of("sqlite", "mysql"), args[1])
@@ -529,6 +592,32 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
     private List<String> filterByPrefix(List<String> values, String prefix) {
         String normalized = prefix.toLowerCase(Locale.ROOT);
         return values.stream().filter(value -> value.toLowerCase(Locale.ROOT).startsWith(normalized)).toList();
+    }
+
+    private List<String> slotSuggestions(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return List.of();
+        }
+        int maxSlots = Math.max(1, Math.min(54, slotLimitService.getMaxSlots(player)));
+        List<String> slots = new ArrayList<>();
+        for (int slot = 1; slot <= maxSlots; slot++) {
+            slots.add(String.valueOf(slot));
+        }
+        return slots;
+    }
+
+    private String joinArgs(String[] args, int startIndex) {
+        if (startIndex >= args.length) {
+            return "";
+        }
+        return String.join(" ", Arrays.copyOfRange(args, startIndex, args.length)).trim();
+    }
+
+    private String detectedCompatibilityPlugins() {
+        List<String> detected = COMPATIBILITY_PLUGIN_NAMES.stream()
+                .filter(name -> Bukkit.getPluginManager().isPluginEnabled(name))
+                .toList();
+        return detected.isEmpty() ? "none detected" : String.join(", ", detected);
     }
 
     private String formatDouble(double value) {

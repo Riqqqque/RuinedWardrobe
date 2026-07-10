@@ -157,7 +157,7 @@ class MigrationServiceTest {
                 new PluginConfig.ArmorSyncSettings(true, 40L, 500, 10L),
                 new PluginConfig.DeathSettings(false),
                 PluginConfig.RestrictionSettings.defaultSettings(),
-                new PluginConfig.MetricsSettings(false, 0),
+                new PluginConfig.MetricsSettings(false),
                 new PluginConfig.IntegrationSettings(false, false, false),
                 new PluginConfig.GuiBehaviorSettings(true, true, false, false, 0),
                 new PluginConfig.AntiDupeSettings(false),

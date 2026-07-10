@@ -11,7 +11,7 @@ Use this page when you want RuinedWardrobe installed, tested, and ready for a fi
 | --- | --- |
 | Server software | Paper or Folia |
 | Target API | `1.21` |
-| Runtime support | Paper/Folia `1.21` through `26.1.2` |
+| Runtime support | Paper/Folia `1.21` through `26.2` |
 | Java | `21+` |
 | Permission plugin | Strongly recommended |
 | Optional hooks | PlaceholderAPI, Vault, CombatLogX |
@@ -38,6 +38,7 @@ Use this page when you want RuinedWardrobe installed, tested, and ready for a fi
 | Save armor into one wardrobe column | The column shows the saved set. |
 | Click that column's equip button | The set equips and becomes the active wardrobe set. |
 | Click the active equip button again | The set unequips cleanly. |
+| Run `/wardrobe rename 1 Casual` | The saved set label updates. |
 | Save a second set and switch between sets | Only one wardrobe set stays active at a time. |
 | Check a locked slot | Locked slots appear above the player's slot tier. |
 
@@ -48,6 +49,7 @@ Run these after the player test:
 ```text
 /wardrobe help
 /wardrobe list <player>
+/wardrobe rename 1 Casual
 /wardrobe doctor
 /wardrobe admin setslots <player> 5
 /wardrobe admin clearslots <player>
@@ -83,7 +85,7 @@ On Linux:
 Jar output:
 
 ```text
-build/libs/RuinedWardrobe-1.0.4.jar
+build/libs/RuinedWardrobe-1.0.10.jar
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.

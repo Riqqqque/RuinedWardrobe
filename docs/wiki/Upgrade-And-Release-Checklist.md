@@ -77,10 +77,16 @@ For local source builds on Windows:
 .\gradlew.bat clean build
 ```
 
+Check the current Paper `26.2` API line:
+
+```powershell
+.\gradlew.bat "-PpaperApiVersion=26.2.build.34-alpha" "-PjavaToolchainVersion=25" "-PjavaReleaseVersion=25" clean testClasses
+```
+
 Expected jar:
 
 ```text
-build/libs/RuinedWardrobe-1.0.4.jar
+build/libs/RuinedWardrobe-1.0.10.jar
 ```
 
 Check these before sending a jar to anyone:

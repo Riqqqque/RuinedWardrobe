@@ -35,6 +35,7 @@ class PluginConfigTest {
         assertEquals(120L, pluginConfig.healthLogSeconds());
         assertTrue(pluginConfig.auditSettings().enabled());
         assertFalse(pluginConfig.auditSettings().logSuccessfulSyncs());
+        assertTrue(pluginConfig.metricsSettings().enabled());
     }
 
     @Test
@@ -110,5 +111,15 @@ class PluginConfigTest {
         PluginConfig pluginConfig = PluginConfig.from(configuration);
 
         assertTrue(pluginConfig.deathSettings().keepWardrobeOnDeath());
+    }
+
+    @Test
+    void allowsDisablingMetrics() {
+        YamlConfiguration configuration = new YamlConfiguration();
+        configuration.set("metrics.enabled", false);
+
+        PluginConfig pluginConfig = PluginConfig.from(configuration);
+
+        assertFalse(pluginConfig.metricsSettings().enabled());
     }
 }

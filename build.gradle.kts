@@ -4,14 +4,17 @@ plugins {
 }
 
 group = "dev.rique"
-version = "1.0.4"
+version = "1.0.10"
 val pluginVersion = version.toString()
 val hangarMaxUploadBytes = 10_000_000L
 val shadedJarFile = layout.buildDirectory.file("libs/${rootProject.name}-$pluginVersion.jar")
+val paperApiVersion = providers.gradleProperty("paperApiVersion").orElse("1.21-R0.1-SNAPSHOT")
+val javaToolchainVersion = providers.gradleProperty("javaToolchainVersion").map(String::toInt).orElse(21)
+val javaReleaseVersion = providers.gradleProperty("javaReleaseVersion").map(String::toInt).orElse(21)
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(javaToolchainVersion.map { JavaLanguageVersion.of(it) })
     }
 }
 
@@ -23,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:${paperApiVersion.get()}")
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
@@ -33,12 +36,13 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.1.0")
     implementation("org.xerial:sqlite-jdbc:3.46.1.3")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1")
-    implementation("org.bstats:bstats-bukkit:3.1.0")
+    implementation("org.bstats:bstats-bukkit:3.2.1")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core:5.23.0")
-    testImplementation("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
+    testImplementation("io.papermc.paper:paper-api:${paperApiVersion.get()}")
+    testImplementation("me.clip:placeholderapi:2.11.6")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -48,7 +52,7 @@ tasks.test {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release.set(21)
+    options.release.set(javaReleaseVersion)
 }
 
 tasks.processResources {

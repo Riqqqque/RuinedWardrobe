@@ -23,6 +23,8 @@ permissions:
     default: true
   ruinedwardrobe.command.list:
     default: true
+  ruinedwardrobe.command.rename:
+    default: true
   ruinedwardrobe.command.doctor:
     default: op
   ruinedwardrobe.command.reload:
@@ -41,6 +43,7 @@ permissions:
     children:
       ruinedwardrobe.command.help: true
       ruinedwardrobe.command.list: true
+      ruinedwardrobe.command.rename: true
       ruinedwardrobe.command.doctor: true
       ruinedwardrobe.command.reload: true
       ruinedwardrobe.command.migrate: true

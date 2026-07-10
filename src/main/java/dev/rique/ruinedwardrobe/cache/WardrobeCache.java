@@ -9,6 +9,7 @@ import dev.rique.ruinedwardrobe.config.PluginConfig;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class WardrobeCache {
 
@@ -28,6 +29,18 @@ public final class WardrobeCache {
 
     public void put(WardrobeProfile profile) {
         cache.put(profile.playerId(), profile);
+    }
+
+    public boolean putIfCurrent(WardrobeProfile profile) {
+        AtomicBoolean stored = new AtomicBoolean(false);
+        cache.asMap().compute(profile.playerId(), (playerId, current) -> {
+            if (current != null && current.version() > profile.version()) {
+                return current;
+            }
+            stored.set(true);
+            return profile;
+        });
+        return stored.get();
     }
 
     public void invalidate(UUID playerId) {

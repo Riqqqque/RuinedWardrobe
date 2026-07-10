@@ -13,6 +13,7 @@ RuinedWardrobe uses small, explicit permission nodes: one base node for players,
 | `/rw` | Alias for `/wardrobe`. | `ruinedwardrobe.use` |
 | `/wardrobe help` | Shows available commands. | `ruinedwardrobe.command.help` |
 | `/wardrobe list [player]` | Lists saved sets for yourself or a known player. | `ruinedwardrobe.command.list` |
+| `/wardrobe rename <slot> <name>` | Renames one of your saved sets. | `ruinedwardrobe.command.rename` |
 | `/wardrobe doctor` | Shows runtime diagnostics. | `ruinedwardrobe.command.doctor` |
 | `/wardrobe reload` | Reloads config, GUI, and language files. | `ruinedwardrobe.command.reload` |
 | `/wardrobe migrate <sqlite\|mysql> [--dry-run] [--force]` | Migrates storage with backup and digest verification. | `ruinedwardrobe.command.migrate` |
@@ -26,6 +27,7 @@ RuinedWardrobe uses small, explicit permission nodes: one base node for players,
 ruinedwardrobe.use
 ruinedwardrobe.command.help
 ruinedwardrobe.command.list
+ruinedwardrobe.command.rename
 ruinedwardrobe.command.doctor
 ruinedwardrobe.command.reload
 ruinedwardrobe.command.migrate
@@ -77,7 +79,7 @@ Keep bypass nodes off normal ranks. They are for staff, testing, and support rec
 
 | Rank | Nodes |
 | --- | --- |
-| Default | `ruinedwardrobe.use`, `ruinedwardrobe.command.help`, `ruinedwardrobe.command.list`, `ruinedwardrobe.slots.3` |
+| Default | `ruinedwardrobe.use`, `ruinedwardrobe.command.help`, `ruinedwardrobe.command.list`, `ruinedwardrobe.command.rename`, `ruinedwardrobe.slots.3` |
 | VIP | `ruinedwardrobe.slots.6` |
 | MVP | `ruinedwardrobe.slots.9` |
 | Legend | `ruinedwardrobe.slots.15` |
@@ -92,6 +94,7 @@ Default players:
 /lp group default permission set ruinedwardrobe.use true
 /lp group default permission set ruinedwardrobe.command.help true
 /lp group default permission set ruinedwardrobe.command.list true
+/lp group default permission set ruinedwardrobe.command.rename true
 /lp group default permission set ruinedwardrobe.slots.3 true
 ```
 

@@ -23,6 +23,7 @@
 # - {storage}, {ready}, {active}: doctor storage diagnostics
 # - {online}, {size}, {hit_rate}, {hits}, {misses}: doctor cache diagnostics
 # - {depth}, {latency_ms}, {poll_ms}, {poll_seconds}, {batch}: doctor runtime diagnostics
+# - {plugins}: detected optional compatibility plugins
 #
 # Tip: Use <newline> in lore values when you need manual line breaks.
 
@@ -127,6 +128,7 @@ help:
   header: "<gold>RuinedWardrobe Commands:</gold>"
   open: "<gray>{root}</gray> <dark_gray>-</dark_gray> <yellow>Open your wardrobe GUI (player only)</yellow>"
   list: "<gray>{root} list [player]</gray> <dark_gray>-</dark_gray> <yellow>List stored wardrobe sets</yellow>"
+  rename: "<gray>{root} rename <slot> <name></gray> <dark_gray>-</dark_gray> <yellow>Rename one of your saved wardrobe sets</yellow>"
   doctor: "<gray>{root} doctor</gray> <dark_gray>-</dark_gray> <yellow>Show runtime diagnostics (storage/cache/sync)</yellow>"
   reload: "<gray>{root} reload</gray> <dark_gray>-</dark_gray> <yellow>Reload config, gui, and language files</yellow>"
   migrate: "<gray>{root} migrate <sqlite|mysql> [--dry-run] [--force]</gray> <dark_gray>-</dark_gray> <yellow>Migrate storage data</yellow>"
@@ -143,6 +145,7 @@ doctor:
   cache: "<gray>Cache:</gray> <yellow>size={size}</yellow> <dark_gray>|</dark_gray> <yellow>hitRate={hit_rate}</yellow> <dark_gray>|</dark_gray> <yellow>hits={hits}</yellow> <dark_gray>|</dark_gray> <yellow>misses={misses}</yellow>"
   queue: "<gray>DB Queue:</gray> <yellow>{depth}</yellow> <dark_gray>|</dark_gray> <gray>Avg DB Latency:</gray> <yellow>{latency_ms} ms</yellow>"
   sync: "<gray>Sync:</gray> <yellow>lastPoll={poll_ms}ms</yellow> <dark_gray>|</dark_gray> <yellow>interval={poll_seconds}s</yellow> <dark_gray>|</dark_gray> <yellow>batch={batch}</yellow>"
+  compatibility: "<gray>Compatibility:</gray> <yellow>{plugins}</yellow>"
   probe-ok: "<green>DB probe succeeded.</green>"
   probe-failed: "<red>DB probe failed:</red> <yellow>{reason}</yellow>"
 
@@ -150,6 +153,7 @@ doctor:
 usage:
   help: "<gray>Usage: /wardrobe help</gray>"
   list: "<gray>Usage: /wardrobe list [player]</gray>"
+  rename: "<gray>Usage: /wardrobe rename <slot> <name></gray>"
   doctor: "<gray>Usage: /wardrobe doctor</gray>"
   migrate: "<gray>Usage: /wardrobe migrate <sqlite|mysql> [--dry-run] [--force]</gray>"
   admin: "<gray>Usage: /wardrobe admin <open|setslots|clearslots></gray>"

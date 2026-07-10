@@ -9,6 +9,7 @@ import dev.rique.ruinedwardrobe.cache.WardrobeCache;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.storage.WardrobeRepository;
+import dev.rique.ruinedwardrobe.util.ArmorPieceMatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -24,16 +25,51 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class WardrobeServiceImplTest {
+
+    @Test
+    void lateProfileLoadDoesNotRepopulateCacheAfterInvalidation() {
+        UUID playerId = UUID.randomUUID();
+        SchedulerAdapter schedulerAdapter = immediateScheduler();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = new WardrobeCache(new PluginConfig.CacheSettings(100L, 60L));
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeProfile profile = new WardrobeProfile(playerId, 4, -1, 10L, Map.of());
+        CompletableFuture<WardrobeProfile> loadFuture = new CompletableFuture<>();
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                schedulerAdapter,
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                mock(WardrobeArmorBindingService.class),
+                mock(PluginConfig.class),
+                WardrobeAuditLogger.disabled());
+
+        when(repository.loadProfile(playerId)).thenReturn(loadFuture);
+
+        CompletableFuture<WardrobeProfile> loaded = service.getProfile(playerId);
+        service.invalidateCache(playerId);
+        loadFuture.complete(profile);
+
+        assertSame(profile, loaded.join());
+        assertFalse(cache.get(playerId).isPresent());
+        verify(slotLimitService).invalidate(playerId);
+        verify(slotLimitService, never()).primeBonus(eq(playerId), anyInt());
+    }
 
     @Test
     void clearArmorPieceRestoresEquippedArmorWhenDeleteFails() {
@@ -382,6 +418,135 @@ class WardrobeServiceImplTest {
             assertEquals(ResultCode.SUCCESS_EQUIPPED, result.code());
             verify(inventory, never()).setHelmet(any());
             verify(inventory).setLeggings(targetBoundLegs);
+        }
+    }
+
+    @Test
+    void samePlayerArmorPieceMutationsRunOneAtATime() {
+        UUID playerId = UUID.randomUUID();
+        SchedulerAdapter schedulerAdapter = immediateScheduler();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = mock(WardrobeCache.class);
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        PluginConfig pluginConfig = mock(PluginConfig.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                schedulerAdapter,
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                bindingService,
+                pluginConfig,
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        ItemStack firstHelmet = armorPiece();
+        ItemStack secondHelmet = armorPiece();
+        WardrobeProfile profile = new WardrobeProfile(playerId, 0, -1, 1L, Map.of());
+        CompletableFuture<Void> firstWrite = new CompletableFuture<>();
+        CompletableFuture<Void> secondWrite = new CompletableFuture<>();
+
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(player.getInventory()).thenReturn(inventory);
+        when(cache.get(playerId)).thenReturn(Optional.of(profile));
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(bindingService.unbindCopy(firstHelmet)).thenReturn(firstHelmet);
+        when(bindingService.unbindCopy(secondHelmet)).thenReturn(secondHelmet);
+        when(repository.saveSet(eq(playerId), any(WardrobeSet.class)))
+                .thenReturn(firstWrite)
+                .thenReturn(secondWrite);
+        when(repository.loadProfile(playerId)).thenReturn(CompletableFuture.completedFuture(profile));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
+                MockedStatic<ArmorPieceMatcher> matcher = mockStatic(ArmorPieceMatcher.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+            matcher.when(() -> ArmorPieceMatcher.matchesWardrobePiece(eq("helmet"), any(org.bukkit.Material.class)))
+                    .thenReturn(true);
+
+            CompletableFuture<WardrobeResult> first = service.setArmorPiece(playerId, 1, "helmet", firstHelmet);
+            CompletableFuture<WardrobeResult> second = service.setArmorPiece(playerId, 1, "helmet", secondHelmet);
+
+            verify(repository, times(1)).saveSet(eq(playerId), any(WardrobeSet.class));
+            assertFalse(second.isDone());
+
+            firstWrite.complete(null);
+            verify(repository, times(2)).saveSet(eq(playerId), any(WardrobeSet.class));
+            secondWrite.complete(null);
+
+            assertEquals(ResultCode.SUCCESS, first.join().code());
+            assertEquals(ResultCode.SUCCESS, second.join().code());
+        }
+    }
+
+    @Test
+    void armorPlacementReturnsPreviousItemFromQueuedWriteState() {
+        UUID playerId = UUID.randomUUID();
+        SchedulerAdapter schedulerAdapter = immediateScheduler();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = new WardrobeCache(new PluginConfig.CacheSettings(100L, 60L));
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        PluginConfig pluginConfig = mock(PluginConfig.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                schedulerAdapter,
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                bindingService,
+                pluginConfig,
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        ItemStack firstHelmet = armorPiece();
+        ItemStack secondHelmet = armorPiece();
+        ItemStack firstStoredHelmet = armorPiece();
+        ItemStack returnedPreviousHelmet = armorPiece();
+        WardrobeProfile emptyProfile = new WardrobeProfile(playerId, 0, -1, 1L, Map.of());
+        WardrobeProfile afterFirstWrite = new WardrobeProfile(playerId, 0, -1, 2L,
+                Map.of(1, new WardrobeSet(1, "Slot 1", false, firstStoredHelmet, null, null, null)));
+        WardrobeProfile afterSecondWrite = new WardrobeProfile(playerId, 0, -1, 3L, Map.of());
+        CompletableFuture<Void> firstWrite = new CompletableFuture<>();
+        CompletableFuture<Void> secondWrite = new CompletableFuture<>();
+
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(player.getInventory()).thenReturn(inventory);
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(bindingService.unbindCopy(firstHelmet)).thenReturn(firstHelmet);
+        when(bindingService.unbindCopy(secondHelmet)).thenReturn(secondHelmet);
+        when(firstStoredHelmet.clone()).thenReturn(returnedPreviousHelmet);
+        when(repository.loadProfile(playerId))
+                .thenReturn(CompletableFuture.completedFuture(emptyProfile))
+                .thenReturn(CompletableFuture.completedFuture(afterFirstWrite))
+                .thenReturn(CompletableFuture.completedFuture(afterSecondWrite));
+        when(repository.saveSet(eq(playerId), any(WardrobeSet.class)))
+                .thenReturn(firstWrite)
+                .thenReturn(secondWrite);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
+                MockedStatic<ArmorPieceMatcher> matcher = mockStatic(ArmorPieceMatcher.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+            matcher.when(() -> ArmorPieceMatcher.matchesWardrobePiece(eq("helmet"), any(org.bukkit.Material.class)))
+                    .thenReturn(true);
+
+            CompletableFuture<WardrobeServiceImpl.ArmorPieceMutationResult> first =
+                    service.placeArmorPiece(playerId, 1, "helmet", firstHelmet);
+            CompletableFuture<WardrobeServiceImpl.ArmorPieceMutationResult> second =
+                    service.placeArmorPiece(playerId, 1, "helmet", secondHelmet);
+
+            assertFalse(second.isDone());
+            firstWrite.complete(null);
+            secondWrite.complete(null);
+
+            assertEquals(ResultCode.SUCCESS, first.join().result().code());
+            assertNull(first.join().previousItem());
+            assertEquals(ResultCode.SUCCESS, second.join().result().code());
+            assertSame(returnedPreviousHelmet, second.join().previousItem());
         }
     }
 

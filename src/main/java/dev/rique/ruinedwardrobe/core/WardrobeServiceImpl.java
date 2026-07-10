@@ -41,6 +41,8 @@ public final class WardrobeServiceImpl implements WardrobeService {
     private final PluginConfig pluginConfig;
     private final WardrobeAuditLogger auditLogger;
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<Void>> mutationChains = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> cacheGenerations = new ConcurrentHashMap<>();
 
     public WardrobeServiceImpl(
             SchedulerAdapter schedulerAdapter,
@@ -64,17 +66,21 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     @Override
     public CompletableFuture<WardrobeProfile> getProfile(UUID playerId) {
+        long generation = cacheGeneration(playerId);
         return cache.get(playerId)
                 .map(CompletableFuture::completedFuture)
                 .orElseGet(() -> repository.loadProfile(playerId).thenApply(profile -> {
-                    cache.put(profile);
-                    slotLimitService.primeBonus(playerId, profile.bonusSlots());
+                    primeProfileIfCurrent(profile, generation);
                     return profile;
                 }));
     }
 
     @Override
     public CompletableFuture<WardrobeResult> saveSet(UUID playerId, int slot) {
+        return runExclusive(playerId, () -> saveSetUnlocked(playerId, slot));
+    }
+
+    private CompletableFuture<WardrobeResult> saveSetUnlocked(UUID playerId, int slot) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
@@ -137,6 +143,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     @Override
     public CompletableFuture<WardrobeResult> equipSet(UUID playerId, int slot) {
+        return runExclusive(playerId, () -> equipSetUnlocked(playerId, slot));
+    }
+
+    private CompletableFuture<WardrobeResult> equipSetUnlocked(UUID playerId, int slot) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
@@ -250,6 +260,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     @Override
     public CompletableFuture<WardrobeResult> deleteSet(UUID playerId, int slot) {
+        return runExclusive(playerId, () -> deleteSetUnlocked(playerId, slot));
+    }
+
+    private CompletableFuture<WardrobeResult> deleteSetUnlocked(UUID playerId, int slot) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
@@ -291,6 +305,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     @Override
     public CompletableFuture<WardrobeResult> renameSet(UUID playerId, int slot, String newName) {
+        return runExclusive(playerId, () -> renameSetUnlocked(playerId, slot, newName));
+    }
+
+    private CompletableFuture<WardrobeResult> renameSetUnlocked(UUID playerId, int slot, String newName) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
             return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
@@ -327,23 +345,75 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     public CompletableFuture<WardrobeResult> setArmorPiece(UUID playerId, int slot, String piece, ItemStack itemStack) {
+        return placeArmorPiece(playerId, slot, piece, itemStack).thenApply(ArmorPieceMutationResult::result);
+    }
+
+    public CompletableFuture<ArmorPieceMutationResult> placeArmorPiece(UUID playerId, int slot, String piece, ItemStack itemStack) {
+        return placeArmorPiece(playerId, slot, piece, itemStack, true);
+    }
+
+    public CompletableFuture<ArmorPieceMutationResult> placeArmorPieceIfEmpty(UUID playerId, int slot, String piece, ItemStack itemStack) {
+        return placeArmorPiece(playerId, slot, piece, itemStack, false);
+    }
+
+    private CompletableFuture<ArmorPieceMutationResult> placeArmorPiece(UUID playerId, int slot, String piece, ItemStack itemStack, boolean allowReplace) {
         if (itemStack == null || itemStack.getType().isAir()) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()), null));
         }
         if (!isValidPieceType(piece) || !isMatchingArmorPiece(itemStack.getType(), piece)) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()), null));
         }
-        return mutateSetPiece(playerId, slot, piece, bindingService.unbindCopy(itemStack), "success.armor-placed", false);
+        return runExclusive(playerId, () -> mutateSetPiece(
+                playerId,
+                slot,
+                piece,
+                bindingService.unbindCopy(itemStack),
+                "success.armor-placed",
+                false,
+                allowReplace));
     }
 
     public CompletableFuture<WardrobeResult> clearArmorPiece(UUID playerId, int slot, String piece) {
+        return takeArmorPiece(playerId, slot, piece).thenApply(ArmorPieceMutationResult::result);
+    }
+
+    public CompletableFuture<ArmorPieceMutationResult> takeArmorPiece(UUID playerId, int slot, String piece) {
         if (!isValidPieceType(piece)) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-slot", Map.of("slot", String.valueOf(slot))));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-slot", Map.of("slot", String.valueOf(slot))), null));
         }
-        return mutateSetPiece(playerId, slot, piece, null, "success.armor-taken", true);
+        return runExclusive(playerId, () -> mutateSetPiece(playerId, slot, piece, null, "success.armor-taken", true, true));
+    }
+
+    public CompletableFuture<Boolean> restoreArmorPieceIfEmpty(UUID playerId, int slot, String piece, ItemStack itemStack) {
+        if (itemStack == null || itemStack.getType().isAir() || !isValidPieceType(piece)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        ItemStack restored = bindingService.unbindCopy(itemStack);
+        return runExclusive(playerId, () -> getProfile(playerId).thenCompose(profile -> {
+            WardrobeSet existing = profile.getSet(slot);
+            WardrobeSet baseSet = createBaseSet(slot, existing);
+            if (readPiece(baseSet, piece) != null) {
+                return CompletableFuture.completedFuture(false);
+            }
+            WardrobeSet updated = applyPieceMutation(baseSet, piece, restored);
+            return repository.saveSet(playerId, updated)
+                    .thenCompose(ignored -> refreshProfileCache(playerId))
+                    .thenApply(ignored -> {
+                        auditLogger.record(
+                                "ARMOR_RETURN_RESTORED",
+                                playerId,
+                                null,
+                                pieceMutationAuditDetails(slot, piece, restored, false));
+                        return true;
+                    });
+        }));
     }
 
     public void invalidateCache(UUID playerId) {
+        cacheGenerations.merge(playerId, 1L, Long::sum);
         cache.invalidate(playerId);
         slotLimitService.invalidate(playerId);
     }
@@ -353,8 +423,20 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     public void primeProfile(WardrobeProfile profile) {
-        cache.put(profile);
-        slotLimitService.primeBonus(profile.playerId(), profile.bonusSlots());
+        if (cache.putIfCurrent(profile)) {
+            slotLimitService.primeBonus(profile.playerId(), profile.bonusSlots());
+        }
+    }
+
+    private void primeProfileIfCurrent(WardrobeProfile profile, long generation) {
+        if (cacheGeneration(profile.playerId()) != generation) {
+            return;
+        }
+        primeProfile(profile);
+    }
+
+    private long cacheGeneration(UUID playerId) {
+        return cacheGenerations.getOrDefault(playerId, 0L);
     }
 
     public long getRemainingCooldownMillis(UUID playerId) {
@@ -447,6 +529,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
         try {
             schedulerAdapter.runPlayer(player, () -> {
                 try {
+                    if (player == null || !player.isOnline()) {
+                        future.completeExceptionally(new IllegalStateException("Player offline"));
+                        return;
+                    }
                     future.complete(supplier.get());
                 } catch (Throwable throwable) {
                     future.completeExceptionally(throwable);
@@ -458,24 +544,58 @@ public final class WardrobeServiceImpl implements WardrobeService {
         return future;
     }
 
-    private CompletableFuture<WardrobeResult> mutateSetPiece(
+    <T> CompletableFuture<T> runExclusive(UUID playerId, Supplier<CompletableFuture<T>> operation) {
+        CompletableFuture<Void> marker = new CompletableFuture<>();
+        CompletableFuture<Void> previous;
+        synchronized (mutationChains) {
+            previous = mutationChains.getOrDefault(playerId, CompletableFuture.completedFuture(null));
+            mutationChains.put(playerId, marker);
+        }
+
+        return previous.exceptionally(ignored -> null)
+                .thenCompose(ignored -> {
+                    try {
+                        CompletableFuture<T> future = operation.get();
+                        if (future == null) {
+                            return CompletableFuture.failedFuture(new IllegalStateException("Mutation returned no result"));
+                        }
+                        return future;
+                    } catch (Throwable throwable) {
+                        return CompletableFuture.failedFuture(throwable);
+                    }
+                })
+                .whenComplete((ignored, throwable) -> {
+                    marker.complete(null);
+                    synchronized (mutationChains) {
+                        if (mutationChains.get(playerId) == marker) {
+                            mutationChains.remove(playerId);
+                        }
+                    }
+                });
+    }
+
+    private CompletableFuture<ArmorPieceMutationResult> mutateSetPiece(
             UUID playerId,
             int slot,
             String piece,
             ItemStack replacement,
             String successKey,
-            boolean autoUnequipIfEquipped
+            boolean autoUnequipIfEquipped,
+            boolean allowReplace
     ) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.ERROR_PLAYER_OFFLINE, "error.player-offline", Map.of()), null));
         }
         if (!PermissionNodes.has(player, "use")) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NO_PERMISSION, "error.no-permission", Map.of()));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_NO_PERMISSION, "error.no-permission", Map.of()), null));
         }
         int maxSlots = slotLimitService.getMaxSlots(player);
         if (slot < 1 || slot > maxSlots) {
-            return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_SLOT_LOCKED, "error.slot-locked", Map.of("slot", String.valueOf(slot), "max", String.valueOf(maxSlots))));
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_SLOT_LOCKED, "error.slot-locked", Map.of("slot", String.valueOf(slot), "max", String.valueOf(maxSlots))), null));
         }
         return onPlayer(player, () -> hasAnyBoundArmorForSlot(player, playerId, slot)).thenCompose(boundSlotEquipped -> {
             if (WardrobeSafetyDecisions.shouldBlockPieceMutation(boundSlotEquipped, autoUnequipIfEquipped)) {
@@ -484,7 +604,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
                         "error.cannot-edit-equipped-piece",
                         Map.of("slot", String.valueOf(slot), "piece", piece));
                 auditBlocked("ARMOR_EDIT_DENIED", player, playerId, result, Map.of("slot", slot, "piece", piece));
-                return CompletableFuture.completedFuture(result);
+                return CompletableFuture.completedFuture(new ArmorPieceMutationResult(result, null));
             }
 
             return getProfile(playerId).thenCompose(profile -> {
@@ -507,9 +627,19 @@ public final class WardrobeServiceImpl implements WardrobeService {
                 return contextFuture.thenCompose(context -> {
                     WardrobeSet baseSet = context.baseSet();
                     if (!baseSet.hasAnyArmorPiece() && replacement == null) {
-                        return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NOTHING_SAVED, "error.nothing-saved", Map.of("slot", String.valueOf(slot))));
+                        return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                                new WardrobeResult(ResultCode.DENIED_NOTHING_SAVED, "error.nothing-saved", Map.of("slot", String.valueOf(slot))), null));
                     }
 
+                    ItemStack previousPiece = cloneItem(readPiece(baseSet, piece));
+                    if (replacement != null && previousPiece != null && !allowReplace) {
+                        return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                                new WardrobeResult(
+                                        ResultCode.DENIED_EMPTY_ARMOR_REQUIRED,
+                                        "error.armor-slot-not-empty",
+                                        Map.of("slot", piece)),
+                                null));
+                    }
                     WardrobeSet updated = applyPieceMutation(baseSet, piece, replacement);
                     CompletableFuture<Void> writeFuture = updated.hasAnyArmorPiece()
                             ? repository.saveSet(playerId, updated)
@@ -527,7 +657,9 @@ public final class WardrobeServiceImpl implements WardrobeService {
                                         playerId,
                                         player.getName(),
                                         pieceMutationAuditDetails(slot, piece, replacement, context.autoUnequipped()));
-                                return new WardrobeResult(ResultCode.SUCCESS, successKey, Map.of("slot", String.valueOf(slot), "piece", piece));
+                                return new ArmorPieceMutationResult(
+                                        new WardrobeResult(ResultCode.SUCCESS, successKey, Map.of("slot", String.valueOf(slot), "piece", piece)),
+                                        previousPiece);
                             })
                             .exceptionallyCompose(ex -> {
                                 auditLogger.error(
@@ -537,7 +669,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
                                         ex,
                                         Map.of("slot", slot, "piece", piece));
                                 return restorePlayerState(player, context.previousState())
-                                        .thenApply(ignored -> storageErrorResult(ex));
+                                        .thenApply(ignored -> new ArmorPieceMutationResult(storageErrorResult(ex), null));
                             });
                 });
             });
@@ -559,10 +691,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
 
     private CompletableFuture<Void> refreshProfileCache(UUID playerId) {
         return repository.loadProfile(playerId)
-                .thenAccept(updated -> {
-                    cache.put(updated);
-                    slotLimitService.primeBonus(playerId, updated.bonusSlots());
-                })
+                .thenAccept(this::primeProfile)
                 .exceptionally(ex -> {
                     invalidateCache(playerId);
                     return null;
@@ -645,6 +774,19 @@ public final class WardrobeServiceImpl implements WardrobeService {
         }
 
         return new WardrobeSet(baseSet.slot(), baseSet.name(), baseSet.favorite(), helmet, chestplate, leggings, boots);
+    }
+
+    private ItemStack readPiece(WardrobeSet set, String piece) {
+        if (set == null) {
+            return null;
+        }
+        return switch (piece) {
+            case "helmet" -> set.helmet();
+            case "chestplate" -> set.chestplate();
+            case "leggings" -> set.leggings();
+            case "boots" -> set.boots();
+            default -> null;
+        };
     }
 
     private ItemStack cloneItem(ItemStack itemStack) {
@@ -777,6 +919,9 @@ public final class WardrobeServiceImpl implements WardrobeService {
             WardrobeSet baseSet,
             boolean autoUnequipped
     ) {
+    }
+
+    public record ArmorPieceMutationResult(WardrobeResult result, ItemStack previousItem) {
     }
 
     private record ArmorRuntimeState(

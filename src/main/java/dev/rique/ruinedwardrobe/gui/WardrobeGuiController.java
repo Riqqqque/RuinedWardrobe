@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Hypixel Skyblock-style wardrobe GUI controller with equip buttons and
@@ -108,7 +109,7 @@ public final class WardrobeGuiController {
         if (guiConfig.equipButtonSlots().contains(clickedSlot)) {
             int wardrobeSlot = session.resolveWardrobeSlot(clickedSlot);
             if (wardrobeSlot > 0) {
-                executeAndRefresh(viewer, session, wardrobeService.equipSet(session.targetId(), wardrobeSlot));
+                executeAndRefresh(viewer, session, () -> wardrobeService.equipSet(session.targetId(), wardrobeSlot));
             }
             return;
         }
@@ -156,97 +157,94 @@ public final class WardrobeGuiController {
         if (piece == null || cursorItem == null || cursorItem.getType().isAir()) {
             return;
         }
-        if (!beginAction(viewer)) {
+        UUID actionId = session.targetId();
+        if (!beginAction(actionId)) {
             return;
         }
         if (bindingService.isBound(cursorItem)) {
             messageService.send(viewer, "error.bound-armor-locked");
-            endAction(viewer);
+            endAction(actionId);
             return;
         }
         if (!piece.matches(cursorItem.getType())) {
             messageService.send(viewer, "error.wrong-armor-type");
-            endAction(viewer);
+            endAction(actionId);
             return;
         }
 
-        ItemStack consumed = consumeSingleCursorItem(viewer);
-        if (consumed == null) {
-            endAction(viewer);
-            return;
-        }
+        wardrobeService.getProfile(session.targetId()).thenAccept(profile -> runForViewer(viewer, () -> {
+            WardrobeSet set = profile.getSet(wardrobeSlot);
+            if (set != null && !isAir(piece.read(set))) {
+                messageService.send(viewer, "error.armor-slot-not-empty", Map.of("slot", piece.key()));
+                endAction(actionId);
+                return;
+            }
 
-        wardrobeService.getProfile(session.targetId())
-                .thenCompose(profile -> {
-                    WardrobeSet set = profile.getSet(wardrobeSlot);
-                    ItemStack replaced = set == null ? null : piece.read(set);
-                    return wardrobeService.setArmorPiece(session.targetId(), wardrobeSlot, piece.key(), consumed)
-                            .thenApply(result -> new ArmorPlaceResult(result, replaced));
-                })
-                .thenAccept(placeResult -> runForViewer(viewer, () -> {
-                    WardrobeResult result = placeResult.result();
-                    if (!result.isSuccess()) {
-                        restoreCursorItem(viewer, consumed);
-                    } else {
-                        giveToCursorOrInventory(viewer, placeResult.replacedItem());
-                    }
-                    applyFeedback(viewer, result);
-                    endAction(viewer);
-                    openMain(viewer, session.targetId(), session.page());
-                }))
-                .exceptionally(ex -> {
-                    runForViewer(viewer, () -> {
-                        restoreCursorItem(viewer, consumed);
-                        messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-                        endAction(viewer);
-                        openMain(viewer, session.targetId(), session.page());
+            ItemStack consumed = consumeSingleCursorItem(viewer);
+            if (consumed == null) {
+                endAction(actionId);
+                return;
+            }
+
+            wardrobeService.placeArmorPieceIfEmpty(session.targetId(), wardrobeSlot, piece.key(), consumed)
+                    .thenAccept(placeResult -> {
+                        endAction(actionId);
+                        runForViewer(viewer, () -> {
+                            WardrobeResult result = placeResult.result();
+                            if (!result.isSuccess()) {
+                                restoreCursorItem(viewer, consumed);
+                            }
+                            applyFeedback(viewer, result);
+                            openMain(viewer, session.targetId(), session.page());
+                        }, () -> {
+                            if (!placeResult.result().isSuccess()) {
+                                restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed);
+                            }
+                        });
+                    })
+                    .exceptionally(ex -> {
+                        endAction(actionId);
+                        runForViewer(viewer, () -> {
+                            restoreCursorItem(viewer, consumed);
+                            messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
+                            openMain(viewer, session.targetId(), session.page());
+                        }, () -> restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed));
+                        return null;
                     });
-                    return null;
-                });
+        }, () -> endAction(actionId))).exceptionally(ex -> {
+            endAction(actionId);
+            runForViewer(viewer, () ->
+                    messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex))));
+            return null;
+        });
     }
 
     private void handleArmorPickup(Player viewer, GuiSession session, int wardrobeSlot, ArmorPiece piece) {
         if (piece == null) {
             return;
         }
-        if (!beginAction(viewer)) {
+        UUID actionId = session.targetId();
+        if (!beginAction(actionId)) {
             return;
         }
-        wardrobeService.getProfile(session.targetId()).thenAccept(profile -> runForViewer(viewer, () -> {
-            WardrobeSet set = profile.getSet(wardrobeSlot);
-            if (set == null) {
-                endAction(viewer);
-                return;
-            }
-
-            ItemStack armorPiece = piece.read(set);
-
-            if (armorPiece == null || armorPiece.getType().isAir()) {
-                endAction(viewer);
-                return;
-            }
-
-            ItemStack reward = resolvePickupReward(viewer, session.targetId(), wardrobeSlot, piece, armorPiece);
-            wardrobeService.clearArmorPiece(session.targetId(), wardrobeSlot, piece.key())
-                    .thenAccept(result -> runForViewer(viewer, () -> {
-                        if (result.isSuccess()) {
-                            giveToCursorOrInventory(viewer, reward);
-                        }
-                        applyFeedback(viewer, result);
-                        endAction(viewer);
-                        openMain(viewer, session.targetId(), session.page());
-                    }))
-                    .exceptionally(ex -> {
-                        runForViewer(viewer, () -> {
-                            messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-                            endAction(viewer);
-                        });
-                        return null;
-                    });
-        })).exceptionally(ex -> {
+        wardrobeService.takeArmorPiece(session.targetId(), wardrobeSlot, piece.key()).thenAccept(takeResult -> {
+            endAction(actionId);
+            runForViewer(viewer, () -> {
+                WardrobeResult result = takeResult.result();
+                if (result.isSuccess()) {
+                    giveToCursorOrInventory(viewer, takeResult.previousItem());
+                }
+                applyFeedback(viewer, result);
+                openMain(viewer, session.targetId(), session.page());
+            }, () -> {
+                if (takeResult.result().isSuccess()) {
+                    restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, takeResult.previousItem());
+                }
+            });
+        }).exceptionally(ex -> {
+            endAction(actionId);
             runForViewer(viewer, () -> {
                 messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-                endAction(viewer);
             });
             return null;
         });
@@ -460,21 +458,49 @@ public final class WardrobeGuiController {
         return display;
     }
 
-    private void executeAndRefresh(Player viewer, GuiSession session, CompletableFuture<WardrobeResult> future) {
-        if (!beginAction(viewer)) {
+    private void executeAndRefresh(
+            Player viewer,
+            GuiSession session,
+            Supplier<CompletableFuture<WardrobeResult>> futureSupplier) {
+        UUID actionId = session.targetId();
+        if (!beginAction(actionId)) {
             return;
         }
-        future.thenAccept(result -> runForViewer(viewer, () -> {
-            applyFeedback(viewer, result);
-            endAction(viewer);
-            openMain(viewer, session.targetId(), session.page());
-        })).exceptionally(ex -> {
+        CompletableFuture<WardrobeResult> future;
+        try {
+            future = futureSupplier.get();
+        } catch (Throwable throwable) {
+            endAction(actionId);
+            runForViewer(viewer, () ->
+                    messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(throwable))));
+            return;
+        }
+        if (future == null) {
+            endAction(actionId);
+            runForViewer(viewer, () ->
+                    messageService.send(viewer, "error.storage", Map.of("reason", "missing action result")));
+            return;
+        }
+        future.thenAccept(result -> {
+            endAction(actionId);
+            runForViewer(viewer, () -> {
+                applyFeedback(viewer, result);
+                openMain(viewer, session.targetId(), session.page());
+            });
+        }).exceptionally(ex -> {
+            endAction(actionId);
             runForViewer(viewer, () -> {
                 messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-                endAction(viewer);
             });
             return null;
         });
+    }
+
+    private void restoreUndeliveredArmor(UUID targetId, int wardrobeSlot, ArmorPiece piece, ItemStack itemStack) {
+        if (piece == null || itemStack == null || itemStack.getType().isAir()) {
+            return;
+        }
+        wardrobeService.restoreArmorPieceIfEmpty(targetId, wardrobeSlot, piece.key(), itemStack);
     }
 
     private void applyFeedback(Player player, WardrobeResult result) {
@@ -579,36 +605,6 @@ public final class WardrobeGuiController {
         return consumed;
     }
 
-    private ItemStack resolvePickupReward(Player viewer, UUID targetId, int wardrobeSlot, ArmorPiece piece,
-            ItemStack fallback) {
-        if (fallback == null || fallback.getType().isAir()) {
-            return fallback;
-        }
-        if (!viewer.getUniqueId().equals(targetId)) {
-            return fallback.clone();
-        }
-        ItemStack equipped = switch (piece) {
-            case HELMET -> viewer.getInventory().getHelmet();
-            case CHESTPLATE -> viewer.getInventory().getChestplate();
-            case LEGGINGS -> viewer.getInventory().getLeggings();
-            case BOOTS -> viewer.getInventory().getBoots();
-        };
-        if (!bindingService.isBoundTo(equipped, targetId)) {
-            return fallback.clone();
-        }
-        if (bindingService.getBoundSlot(equipped) != wardrobeSlot) {
-            return fallback.clone();
-        }
-        if (!piece.key().equals(bindingService.getBoundPiece(equipped))) {
-            return fallback.clone();
-        }
-        ItemStack live = bindingService.unbindCopy(equipped);
-        if (live == null || live.getType().isAir()) {
-            return fallback.clone();
-        }
-        return live;
-    }
-
     private void giveToCursorOrInventory(Player viewer, ItemStack itemStack) {
         if (itemStack == null || itemStack.getType().isAir()) {
             return;
@@ -651,13 +647,27 @@ public final class WardrobeGuiController {
     }
 
     private void runForViewer(Player viewer, Runnable runnable) {
+        runForViewer(viewer, runnable, () -> {
+        });
+    }
+
+    private boolean runForViewer(Player viewer, Runnable runnable, Runnable skipped) {
         if (viewer == null || !viewer.isOnline()) {
-            return;
+            skipped.run();
+            return false;
         }
         try {
-            schedulerAdapter.runPlayer(viewer, runnable);
+            schedulerAdapter.runPlayer(viewer, () -> {
+                if (viewer.isOnline()) {
+                    runnable.run();
+                    return;
+                }
+                skipped.run();
+            });
+            return true;
         } catch (IllegalStateException ignored) {
-            // Player disconnected or retired before the GUI update could be scheduled.
+            skipped.run();
+            return false;
         }
     }
 
@@ -681,15 +691,12 @@ public final class WardrobeGuiController {
         return resolved;
     }
 
-    private boolean beginAction(Player viewer) {
-        return pendingActions.add(viewer.getUniqueId());
+    private boolean beginAction(UUID actionId) {
+        return pendingActions.add(actionId);
     }
 
-    private void endAction(Player viewer) {
-        pendingActions.remove(viewer.getUniqueId());
-    }
-
-    private record ArmorPlaceResult(WardrobeResult result, ItemStack replacedItem) {
+    private void endAction(UUID actionId) {
+        pendingActions.remove(actionId);
     }
 
     private enum ArmorPiece {

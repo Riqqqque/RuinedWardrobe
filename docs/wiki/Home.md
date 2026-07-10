@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
 [![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
-[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-1.21--26.1.2-2f3136)](https://papermc.io/)
+[![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-1.21--26.2-2f3136)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-21%2B-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
 
@@ -20,7 +20,7 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 | Server platform | Paper or Folia |
 | Java | `21+` |
 | Target API | Paper `1.21` |
-| Runtime support | Paper/Folia `1.21` through `26.1.2` |
+| Runtime support | Paper/Folia `1.21` through `26.2` |
 | Default storage | SQLite at `plugins/RuinedWardrobe/data/wardrobe.db` |
 | Network storage | MySQL or MariaDB |
 | Main commands | `/wardrobe`, `/rw` |
@@ -49,6 +49,7 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 | --- | --- |
 | Open `/wardrobe` or `/rw` | A page-based armor wardrobe opens. |
 | Drag armor into a column | That column becomes a saved set. |
+| Rename a saved set | `/wardrobe rename <slot> <name>` updates the saved set label. |
 | Click a set button | The saved armor equips and becomes bound to the player while worn. |
 | Click the active set button | The wardrobe armor unequips cleanly. |
 | Open locked slots | Locked slots show when the player lacks the required slot tier. |
@@ -57,7 +58,7 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 
 | Tool | Why it matters |
 | --- | --- |
-| `/wardrobe doctor` | Checks storage, cache, DB queue, sync, and a real DB probe from in game. |
+| `/wardrobe doctor` | Checks storage, cache, DB queue, sync, optional plugin hooks, and a real DB probe from in game. |
 | Audit logs | Trace save, equip, rename, delete, death, sanitizer, sync, and error events. |
 | Bound armor protection | Blocks common move, drop, swap, dispense, and container abuse paths. |
 | Config version guards | Old configs are backed up and regenerated when bundled templates change. |

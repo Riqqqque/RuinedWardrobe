@@ -46,6 +46,8 @@ import java.util.logging.Level;
 
 public final class RuinedWardrobePlugin extends JavaPlugin {
 
+    private static final int BSTATS_PLUGIN_ID = 31967;
+
     private ConfigManager configManager;
     private PluginConfig pluginConfig;
     private LanguageRegistry languageRegistry;
@@ -66,6 +68,7 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
     private MigrationService migrationService;
     private RuinedWardrobeExpansion placeholderExpansion;
     private VaultHook vaultHook;
+    private Metrics metrics;
 
     @Override
     public void onEnable() {
@@ -192,8 +195,8 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
             placeholderExpansion.register();
         }
 
-        if (pluginConfig.metricsSettings().enabled() && pluginConfig.metricsSettings().pluginId() > 0) {
-            new Metrics(this, pluginConfig.metricsSettings().pluginId());
+        if (pluginConfig.metricsSettings().enabled()) {
+            metrics = new Metrics(this, BSTATS_PLUGIN_ID);
         }
     }
 
@@ -262,6 +265,10 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
         }
         if (armorSyncService != null) {
             armorSyncService.stop();
+        }
+        if (metrics != null) {
+            metrics.shutdown();
+            metrics = null;
         }
         if (placeholderExpansion != null) {
             try {
