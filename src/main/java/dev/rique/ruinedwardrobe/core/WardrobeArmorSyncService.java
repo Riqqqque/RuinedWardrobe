@@ -128,20 +128,42 @@ public final class WardrobeArmorSyncService {
     }
 
     public CompletableFuture<Void> syncNow(Player player) {
+        if (player == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        CompletableFuture<PlayerArmorSnapshot> captureFuture = new CompletableFuture<>();
         try {
-            PlayerArmorSnapshot snapshot = captureSnapshot(player, false);
-            if (snapshot == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-            PendingPlayerSync pending = pendingSync.get(snapshot.playerId());
-            CompletableFuture<Void> previousSync = pending == null
-                    ? CompletableFuture.completedFuture(null)
-                    : pending.completion().exceptionally(ignored -> null);
-            return previousSync.thenCompose(
-                    ignored -> wardrobeService.runExclusive(snapshot.playerId(), () -> persistSnapshotUnlocked(snapshot, false)));
+            schedulerAdapter.runPlayer(player, () -> {
+                try {
+                    captureFuture.complete(captureSnapshot(player, false));
+                } catch (Throwable throwable) {
+                    captureFuture.completeExceptionally(throwable);
+                }
+            });
         } catch (Throwable throwable) {
             return CompletableFuture.failedFuture(throwable);
         }
+        return captureFuture.thenCompose(this::persistAfterPendingSync);
+    }
+
+    public CompletableFuture<Void> syncNowFromPlayerEvent(Player player) {
+        try {
+            return persistAfterPendingSync(captureSnapshot(player, false));
+        } catch (Throwable throwable) {
+            return CompletableFuture.failedFuture(throwable);
+        }
+    }
+
+    private CompletableFuture<Void> persistAfterPendingSync(PlayerArmorSnapshot snapshot) {
+        if (snapshot == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        PendingPlayerSync pending = pendingSync.get(snapshot.playerId());
+        CompletableFuture<Void> previousSync = pending == null
+                ? CompletableFuture.completedFuture(null)
+                : pending.completion().exceptionally(ignored -> null);
+        return previousSync.thenCompose(
+                ignored -> wardrobeService.runExclusive(snapshot.playerId(), () -> persistSnapshotUnlocked(snapshot, false)));
     }
 
     public CompletableFuture<Void> clearSelectedSlot(UUID playerId) {
@@ -244,7 +266,7 @@ public final class WardrobeArmorSyncService {
             return CompletableFuture.completedFuture(null);
         }
         UUID playerId = player.getUniqueId();
-        return syncNow(player)
+        return syncNowFromPlayerEvent(player)
                 .exceptionally(ex -> {
                     plugin.getLogger().warning("Failed to save wardrobe armor before death preservation for "
                             + player.getName() + ": " + ex.getMessage());
@@ -293,13 +315,17 @@ public final class WardrobeArmorSyncService {
         if (requireOnline && !player.isOnline()) {
             return null;
         }
-        int removedItems = bindingService.sanitizeForeignBoundItems(player);
-        if (removedItems > 0) {
+        WardrobeArmorBindingService.SanitizationResult sanitization = bindingService.sanitizeBoundItems(player);
+        if (sanitization.changed()) {
             auditLogger.record(
-                    "FOREIGN_BOUND_ARMOR_REMOVED",
+                    "BOUND_ARMOR_RECONCILED",
                     player.getUniqueId(),
                     player.getName(),
-                    Map.of("source", "sync-capture", "removedItems", removedItems));
+                    Map.of(
+                            "source", "sync-capture",
+                            "foreignRemoved", sanitization.foreignRemoved(),
+                            "duplicatesRemoved", sanitization.duplicatesRemoved(),
+                            "detachedUnbound", sanitization.detachedUnbound()));
         }
 
         int activeSlot = bindingService.resolveActiveSlot(player);
@@ -307,10 +333,10 @@ public final class WardrobeArmorSyncService {
         return new PlayerArmorSnapshot(
                 playerId,
                 activeSlot,
-                boundPieceCopy(player.getInventory().getHelmet(), playerId, activeSlot),
-                boundPieceCopy(player.getInventory().getChestplate(), playerId, activeSlot),
-                boundPieceCopy(player.getInventory().getLeggings(), playerId, activeSlot),
-                boundPieceCopy(player.getInventory().getBoots(), playerId, activeSlot));
+                boundPieceCopy(player.getInventory().getHelmet(), playerId, activeSlot, "helmet"),
+                boundPieceCopy(player.getInventory().getChestplate(), playerId, activeSlot, "chestplate"),
+                boundPieceCopy(player.getInventory().getLeggings(), playerId, activeSlot, "leggings"),
+                boundPieceCopy(player.getInventory().getBoots(), playerId, activeSlot, "boots"));
     }
 
     private CompletableFuture<Void> persistSnapshotUnlocked(PlayerArmorSnapshot snapshot, boolean refreshCache) {
@@ -392,11 +418,14 @@ public final class WardrobeArmorSyncService {
                 });
     }
 
-    private ItemStack boundPieceCopy(ItemStack source, UUID playerId, int activeSlot) {
+    private ItemStack boundPieceCopy(ItemStack source, UUID playerId, int activeSlot, String expectedPiece) {
         if (!bindingService.isBoundTo(source, playerId)) {
             return null;
         }
         if (bindingService.getBoundSlot(source) != activeSlot) {
+            return null;
+        }
+        if (!expectedPiece.equals(bindingService.getBoundPiece(source))) {
             return null;
         }
         return bindingService.unbindCopy(source);

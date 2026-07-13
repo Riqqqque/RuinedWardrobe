@@ -2,9 +2,8 @@ package dev.rique.ruinedwardrobe.gui;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
@@ -18,40 +17,52 @@ public final class WardrobeGuiListener implements Listener {
         this.guiController = guiController;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
         if (event.getInventory().getHolder() instanceof WardrobeMenuHolder holder) {
+            if (!holder.session().viewerId().equals(player.getUniqueId())) {
+                event.setCancelled(true);
+                guiController.closeInvalidSession(player);
+                return;
+            }
             if (event.getClickedInventory() == null) {
                 event.setCancelled(true);
+                guiController.resyncInventory(player);
                 return;
             }
 
-            // Bottom inventory remains player-controlled, except quick-move which can bypass GUI rules.
             if (event.getClickedInventory() == player.getInventory()) {
-                if (event.getClick().isShiftClick()
-                        || event.getClick() == ClickType.DOUBLE_CLICK
-                        || event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
+                if (!WardrobeClickPolicy.isAllowedDirectAction(event)) {
                     event.setCancelled(true);
+                    guiController.resyncInventory(player);
                 }
                 return;
             }
 
-            // Clicking in the wardrobe GUI (top inventory)
             event.setCancelled(true);
+            if (!WardrobeClickPolicy.isAllowedDirectAction(event)) {
+                guiController.resyncInventory(player);
+                return;
+            }
             guiController.handleMainClick(player, holder, event);
             return;
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
         if (event.getInventory().getHolder() instanceof WardrobeMenuHolder holder) {
+            if (!holder.session().viewerId().equals(player.getUniqueId())) {
+                event.setCancelled(true);
+                guiController.closeInvalidSession(player);
+                return;
+            }
             int topSize = event.getInventory().getSize();
             List<Integer> topSlots = event.getRawSlots().stream()
                     .filter(slot -> slot < topSize)
@@ -62,6 +73,8 @@ public final class WardrobeGuiListener implements Listener {
             event.setCancelled(true);
             if (topSlots.size() == 1) {
                 guiController.handleMainDrag(player, holder, topSlots.get(0), event.getOldCursor());
+            } else {
+                guiController.resyncInventory(player);
             }
             return;
         }

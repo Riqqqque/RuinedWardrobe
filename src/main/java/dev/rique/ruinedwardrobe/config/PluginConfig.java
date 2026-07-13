@@ -81,10 +81,12 @@ public final class PluginConfig {
     }
 
     public static PluginConfig from(FileConfiguration config) {
-        int defaultSlots = Math.max(1, config.getInt("wardrobe.default-slots", 3));
-        int maxSlotsCap = Math.max(defaultSlots, config.getInt("wardrobe.max-slots-cap", 54));
+        int defaultSlots = Math.max(1, Math.min(90, config.getInt("wardrobe.default-slots", 3)));
+        int maxSlotsCap = Math.max(defaultSlots, Math.min(90, config.getInt("wardrobe.max-slots-cap", 54)));
         int maxPages = Math.max(1, Math.min(10, config.getInt("wardrobe.max-pages", 2)));
-        long equipCooldownMillis = Math.max(0, config.getLong("wardrobe.equip-cooldown-seconds", 3)) * 1000L;
+        long equipCooldownSeconds = Math.max(0L, Math.min(86_400L,
+                config.getLong("wardrobe.equip-cooldown-seconds", 3)));
+        long equipCooldownMillis = equipCooldownSeconds * 1000L;
         boolean debug = config.getBoolean("debug.enabled", false);
         String language = stringOrDefault(config.getString("language.active", "en_US"), "en_US");
         MessageFormatMode formatMode = MessageFormatMode.parse(config.getString("messages.format-mode", "BOTH"));
@@ -94,13 +96,13 @@ public final class PluginConfig {
                 : DatabaseType.parse(storage.getString("type", "SQLITE"));
         String sqlitePath = storage == null ? "data/wardrobe.db" : stringOrDefault(storage.getString("sqlite.file", "data/wardrobe.db"), "data/wardrobe.db");
         String mysqlHost = storage == null ? "127.0.0.1" : stringOrDefault(storage.getString("mysql.host", "127.0.0.1"), "127.0.0.1");
-        int mysqlPort = storage == null ? 3306 : storage.getInt("mysql.port", 3306);
+        int mysqlPort = storage == null ? 3306 : Math.max(1, Math.min(65_535, storage.getInt("mysql.port", 3306)));
         String mysqlDatabase = storage == null ? "ruinedwardrobe" : stringOrDefault(storage.getString("mysql.database", "ruinedwardrobe"), "ruinedwardrobe");
         String mysqlUser = storage == null ? "root" : stringOrDefault(storage.getString("mysql.username", "root"), "root");
         String mysqlPassword = storage == null ? "" : sensitiveStringOrDefault(storage.getString("mysql.password", ""), "");
         String mysqlParams = storage == null ? "useUnicode=true&characterEncoding=utf8&useSSL=false"
                 : stringOrDefault(storage.getString("mysql.params", "useUnicode=true&characterEncoding=utf8&useSSL=false"), "useUnicode=true&characterEncoding=utf8&useSSL=false");
-        int maxPoolSize = storage == null ? 10 : Math.max(2, storage.getInt("pool.max-size", 10));
+        int maxPoolSize = storage == null ? 10 : Math.max(2, Math.min(256, storage.getInt("pool.max-size", 10)));
         int minIdle = storage == null ? 2 : Math.min(maxPoolSize, Math.max(1, storage.getInt("pool.min-idle", 2)));
         long connectionTimeout = storage == null ? 10000L
                 : Math.max(1000L, storage.getLong("pool.connection-timeout-ms", 10000L));
@@ -109,13 +111,13 @@ public final class PluginConfig {
 
         ConfigurationSection cache = config.getConfigurationSection("performance.cache");
         CacheSettings cacheSettings = new CacheSettings(
-                cache == null ? 100_000 : Math.max(1000L, cache.getLong("max-size", 100_000L)),
-                cache == null ? 600L : Math.max(60L, cache.getLong("expire-after-seconds", 600L)));
+                cache == null ? 100_000 : Math.max(1000L, Math.min(5_000_000L, cache.getLong("max-size", 100_000L))),
+                cache == null ? 600L : Math.max(60L, Math.min(86_400L, cache.getLong("expire-after-seconds", 600L))));
 
         ConfigurationSection sync = config.getConfigurationSection("performance.sync");
         SyncSettings syncSettings = new SyncSettings(
-                sync == null ? 5L : Math.max(1L, sync.getLong("poll-seconds", 5L)),
-                sync == null ? 150 : Math.max(10, sync.getInt("batch-size", 150)));
+                sync == null ? 5L : Math.max(1L, Math.min(3_600L, sync.getLong("poll-seconds", 5L))),
+                sync == null ? 150 : Math.max(10, Math.min(100_000, sync.getInt("batch-size", 150))));
 
         ConfigurationSection session = config.getConfigurationSection("performance.session");
         SessionSettings sessionSettings = new SessionSettings(
@@ -125,9 +127,10 @@ public final class PluginConfig {
         ConfigurationSection armorSync = config.getConfigurationSection("performance.armor-sync");
         ArmorSyncSettings armorSyncSettings = new ArmorSyncSettings(
                 armorSync == null || armorSync.getBoolean("enabled", true),
-                armorSync == null ? 40L : Math.max(20L, armorSync.getLong("scan-interval-ticks", 40L)),
-                armorSync == null ? 500 : Math.max(25, armorSync.getInt("scan-batch-size", 500)),
-                armorSync == null ? 10L : Math.max(1L, armorSync.getLong("shutdown-flush-timeout-seconds", 10L)));
+                armorSync == null ? 40L : Math.max(20L, Math.min(72_000L, armorSync.getLong("scan-interval-ticks", 40L))),
+                armorSync == null ? 500 : Math.max(25, Math.min(100_000, armorSync.getInt("scan-batch-size", 500))),
+                armorSync == null ? 10L : Math.max(1L, Math.min(60L,
+                        armorSync.getLong("shutdown-flush-timeout-seconds", 10L))));
 
         ConfigurationSection death = config.getConfigurationSection("death");
         DeathSettings deathSettings = new DeathSettings(
@@ -160,15 +163,18 @@ public final class PluginConfig {
 
         ConfigurationSection dbExecution = config.getConfigurationSection("performance.database");
         DbExecutionSettings dbExecutionSettings = new DbExecutionSettings(
-                dbExecution == null ? 2048 : Math.max(128, dbExecution.getInt("write-queue-capacity", 2048)),
-                dbExecution == null ? 3 : Math.max(0, dbExecution.getInt("write-retries", 3)),
-                dbExecution == null ? 150L : Math.max(10L, dbExecution.getLong("retry-delay-ms", 150L)),
-                dbExecution == null ? 4 : Math.max(1, dbExecution.getInt("worker-threads", 4)));
+                dbExecution == null ? 2048 : Math.max(128, Math.min(1_000_000,
+                        dbExecution.getInt("write-queue-capacity", 2048))),
+                dbExecution == null ? 3 : Math.max(0, Math.min(20, dbExecution.getInt("write-retries", 3))),
+                dbExecution == null ? 150L : Math.max(10L, Math.min(60_000L,
+                        dbExecution.getLong("retry-delay-ms", 150L))),
+                dbExecution == null ? 4 : Math.max(1, Math.min(256, dbExecution.getInt("worker-threads", 4))));
 
         ConfigurationSection health = config.getConfigurationSection("performance.health");
         HealthSettings healthSettings = new HealthSettings(
                 health == null || health.getBoolean("enabled", true),
-                health == null ? 120L : Math.max(10L, health.getLong("log-seconds", 120L)));
+                health == null ? 120L : Math.max(10L, Math.min(86_400L,
+                        health.getLong("log-seconds", 120L))));
 
         ConfigurationSection audit = config.getConfigurationSection("audit");
         AuditSettings auditSettings = new AuditSettings(

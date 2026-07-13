@@ -15,6 +15,7 @@ import dev.rique.ruinedwardrobe.util.ArmorPieceMatcher;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -174,6 +175,37 @@ class WardrobeGuiControllerTest {
     }
 
     @Test
+    void foreignViewerSessionIsClosedBeforeMutation() {
+        Fixture fixture = new Fixture();
+        when(fixture.guiConfig.equipButtonSlots()).thenReturn(List.of(4));
+        GuiSession foreignSession = new GuiSession(UUID.randomUUID(), fixture.playerId, 0);
+        foreignSession.bindSlot(4, 3);
+
+        fixture.controller.handleMainClick(
+                fixture.player,
+                new WardrobeMenuHolder(foreignSession),
+                fixture.clickEvent(4, ClickType.LEFT));
+
+        verify(fixture.player).closeInventory();
+        verify(fixture.player).updateInventory();
+        verify(fixture.wardrobeService, never()).equipSet(fixture.playerId, 3);
+    }
+
+    @Test
+    void unknownActionIsRejectedInsideController() {
+        Fixture fixture = new Fixture();
+        when(fixture.guiConfig.equipButtonSlots()).thenReturn(List.of(4));
+
+        fixture.controller.handleMainClick(
+                fixture.player,
+                fixture.holder(4, 3),
+                fixture.clickEvent(4, ClickType.LEFT, InventoryAction.UNKNOWN));
+
+        verify(fixture.player).updateInventory();
+        verify(fixture.wardrobeService, never()).equipSet(fixture.playerId, 3);
+    }
+
+    @Test
     void pickupRestoresPieceWhenViewerDisconnectsBeforeDelivery() {
         Fixture fixture = new Fixture();
         ItemStack savedChestplate = item();
@@ -272,9 +304,14 @@ class WardrobeGuiControllerTest {
         }
 
         private InventoryClickEvent clickEvent(int rawSlot, ClickType clickType) {
+            return clickEvent(rawSlot, clickType, InventoryAction.PICKUP_ALL);
+        }
+
+        private InventoryClickEvent clickEvent(int rawSlot, ClickType clickType, InventoryAction action) {
             InventoryClickEvent event = mock(InventoryClickEvent.class);
             when(event.getRawSlot()).thenReturn(rawSlot);
             when(event.getClick()).thenReturn(clickType);
+            when(event.getAction()).thenReturn(action);
             return event;
         }
     }

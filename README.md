@@ -30,6 +30,7 @@ It is free to use on any server, including monetized servers. The source and jar
 - Snapshot-based storage migration with digest verification.
 - PlaceholderAPI expansion and optional Vault/combat integration hooks.
 - Custom item/plugin compatibility notes built around full `ItemStack` storage and `/wardrobe doctor` hook detection.
+- Player heads and mob heads can be stored in helmet cells with their complete item metadata intact.
 - Anonymous bStats metrics for server/plugin version adoption.
 
 ## Download
@@ -53,7 +54,7 @@ Jar output when building locally:
 ```
 
 ```text
-build/libs/RuinedWardrobe-1.0.10.jar
+build/libs/RuinedWardrobe-1.0.15.jar
 ```
 
 ## Commands
@@ -183,3 +184,4 @@ Compatibility check against the current Paper `26.2` API line:
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies so normal installs do not need extra jars.
+MariaDB connections use the configured TCP host and port. Windows GSSAPI, named pipes, and Unix sockets require their own optional connector dependencies and are not bundled.

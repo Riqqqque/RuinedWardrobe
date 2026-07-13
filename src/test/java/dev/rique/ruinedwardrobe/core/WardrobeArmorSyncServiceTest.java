@@ -184,6 +184,7 @@ class WardrobeArmorSyncServiceTest {
         when(bindingService.resolveActiveSlot(player)).thenReturn(4);
         when(bindingService.isBoundTo(boundHelmet, playerId)).thenReturn(true);
         when(bindingService.getBoundSlot(boundHelmet)).thenReturn(4);
+        when(bindingService.getBoundPiece(boundHelmet)).thenReturn("helmet");
         when(bindingService.unbindCopy(boundHelmet)).thenReturn(liveHelmet);
 
         when(wardrobeService.getProfile(playerId)).thenReturn(CompletableFuture.completedFuture(profile));
@@ -246,6 +247,7 @@ class WardrobeArmorSyncServiceTest {
         when(bindingService.resolveActiveSlot(player)).thenReturn(4);
         when(bindingService.isBoundTo(boundHelmet, playerId)).thenReturn(true);
         when(bindingService.getBoundSlot(boundHelmet)).thenReturn(4);
+        when(bindingService.getBoundPiece(boundHelmet)).thenReturn("helmet");
         when(bindingService.unbindCopy(boundHelmet)).thenReturn(profileHelmet);
         when(wardrobeService.getProfile(playerId)).thenReturn(CompletableFuture.completedFuture(profile));
         when(repository.setSelectedSlot(playerId, 4)).thenReturn(CompletableFuture.completedFuture(null));
@@ -275,6 +277,12 @@ class WardrobeArmorSyncServiceTest {
             WardrobeArmorBindingService bindingService,
             boolean keepWardrobeOnDeath
     ) {
+        when(bindingService.sanitizeBoundItems(any(Player.class))).thenReturn(
+                new WardrobeArmorBindingService.SanitizationResult(0, 0, 0));
+        when(schedulerAdapter.runPlayer(any(Player.class), any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return mock(SchedulerAdapter.TaskHandle.class);
+        });
         when(wardrobeService.runExclusive(any(UUID.class), any())).thenAnswer(invocation -> {
             Supplier<CompletableFuture<Void>> operation = invocation.getArgument(1);
             return operation.get();

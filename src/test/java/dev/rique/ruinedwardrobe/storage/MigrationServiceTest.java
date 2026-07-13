@@ -4,6 +4,7 @@ import dev.rique.ruinedwardrobe.config.DatabaseType;
 import dev.rique.ruinedwardrobe.config.MessageFormatMode;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.core.WardrobeAuditLogger;
+import dev.rique.ruinedwardrobe.core.WardrobeArmorSyncService;
 import dev.rique.ruinedwardrobe.util.ItemStackDataSerializer;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,8 @@ class MigrationServiceTest {
         WardrobeRepository sourceRepository = mock(WardrobeRepository.class);
         when(sourceRepository.readSnapshot()).thenReturn(CompletableFuture.completedFuture(snapshot(sourcePlayer, "source-payload")));
 
-        MigrationService service = new MigrationService(plugin(tempDir), sourceConfig, sourceRepository);
+        MigrationService service = new MigrationService(
+                plugin(tempDir), sourceConfig, sourceRepository, armorSyncService());
 
         MigrationService.MigrationResult result = service.migrate(DatabaseType.SQLITE, false).join();
 
@@ -55,7 +57,8 @@ class MigrationServiceTest {
         WardrobeRepository sourceRepository = mock(WardrobeRepository.class);
         when(sourceRepository.readSnapshot()).thenReturn(CompletableFuture.completedFuture(snapshot(sourcePlayer, "source-payload")));
 
-        MigrationService service = new MigrationService(plugin(tempDir), sourceConfig, sourceRepository);
+        MigrationService service = new MigrationService(
+                plugin(tempDir), sourceConfig, sourceRepository, armorSyncService());
 
         MigrationService.MigrationResult result = service.migrate(DatabaseType.SQLITE, false, true).join();
 
@@ -128,6 +131,12 @@ class MigrationServiceTest {
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
         when(plugin.getLogger()).thenReturn(Logger.getLogger("MigrationServiceTest"));
         return plugin;
+    }
+
+    private WardrobeArmorSyncService armorSyncService() {
+        WardrobeArmorSyncService service = mock(WardrobeArmorSyncService.class);
+        when(service.flushOnlinePlayers()).thenReturn(CompletableFuture.completedFuture(null));
+        return service;
     }
 
     private PluginConfig config(DatabaseType storageType) {

@@ -27,7 +27,10 @@ public final class LanguageRegistry {
 
     public void load(String locale) {
         ensureDefault("lang/en_US.yml");
-        activeLocale = locale == null || locale.isBlank() ? "en_US" : locale;
+        activeLocale = sanitizeLocale(locale);
+        if (locale != null && !locale.isBlank() && !activeLocale.equals(locale.trim())) {
+            plugin.getLogger().warning("language.active contains an invalid locale name; using en_US instead.");
+        }
         fallbackCountByKey.clear();
         fallback = loadLocale("en_US");
         active = loadLocale(activeLocale);
@@ -71,7 +74,7 @@ public final class LanguageRegistry {
     }
 
     private FileConfiguration loadLocale(String locale) {
-        String normalized = locale.trim();
+        String normalized = sanitizeLocale(locale);
         ensureDefault("lang/" + normalized + ".yml");
         File file = new File(plugin.getDataFolder(), "lang" + File.separator + normalized + ".yml");
         if (!file.exists()) {
@@ -87,6 +90,17 @@ public final class LanguageRegistry {
             }
         }
         return loaded;
+    }
+
+    static String sanitizeLocale(String locale) {
+        if (locale == null) {
+            return "en_US";
+        }
+        String normalized = locale.trim();
+        if (normalized.isEmpty() || normalized.length() > 32 || !normalized.matches("[A-Za-z0-9_-]+")) {
+            return "en_US";
+        }
+        return normalized;
     }
 
     private void ensureDefault(String path) {

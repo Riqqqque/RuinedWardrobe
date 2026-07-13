@@ -3,6 +3,7 @@ package dev.rique.ruinedwardrobe.storage;
 import dev.rique.ruinedwardrobe.config.DatabaseType;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.core.WardrobeAuditLogger;
+import dev.rique.ruinedwardrobe.core.WardrobeArmorSyncService;
 import dev.rique.ruinedwardrobe.util.ItemStackDataSerializer;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,11 +24,17 @@ public final class MigrationService {
     private final JavaPlugin plugin;
     private final PluginConfig pluginConfig;
     private final WardrobeRepository sourceRepository;
+    private final WardrobeArmorSyncService armorSyncService;
 
-    public MigrationService(JavaPlugin plugin, PluginConfig pluginConfig, WardrobeRepository sourceRepository) {
+    public MigrationService(
+            JavaPlugin plugin,
+            PluginConfig pluginConfig,
+            WardrobeRepository sourceRepository,
+            WardrobeArmorSyncService armorSyncService) {
         this.plugin = plugin;
         this.pluginConfig = pluginConfig;
         this.sourceRepository = sourceRepository;
+        this.armorSyncService = armorSyncService;
     }
 
     public CompletableFuture<MigrationResult> migrate(DatabaseType targetType, boolean dryRun) {
@@ -35,6 +42,11 @@ public final class MigrationService {
     }
 
     public CompletableFuture<MigrationResult> migrate(DatabaseType targetType, boolean dryRun, boolean force) {
+        return armorSyncService.flushOnlinePlayers()
+                .thenCompose(ignored -> migrateAfterFlush(targetType, dryRun, force));
+    }
+
+    private CompletableFuture<MigrationResult> migrateAfterFlush(DatabaseType targetType, boolean dryRun, boolean force) {
         DatabaseType sourceType = pluginConfig.storageSettings().type();
         if (sourceType == targetType) {
             return CompletableFuture.completedFuture(new MigrationResult(false, 0, 0, 0, "Source and target storage are the same"));

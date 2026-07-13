@@ -1,5 +1,7 @@
 package dev.rique.ruinedwardrobe.core;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.rique.ruinedwardrobe.api.WardrobeService;
 import dev.rique.ruinedwardrobe.api.event.WardrobeDeletedEvent;
 import dev.rique.ruinedwardrobe.api.event.WardrobeEquippedEvent;
@@ -28,6 +30,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 public final class WardrobeServiceImpl implements WardrobeService {
@@ -42,7 +46,8 @@ public final class WardrobeServiceImpl implements WardrobeService {
     private final WardrobeAuditLogger auditLogger;
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, CompletableFuture<Void>> mutationChains = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> cacheGenerations = new ConcurrentHashMap<>();
+    private final Cache<UUID, Long> cacheGenerations;
+    private final AtomicLong generationSequence = new AtomicLong();
 
     public WardrobeServiceImpl(
             SchedulerAdapter schedulerAdapter,
@@ -62,6 +67,13 @@ public final class WardrobeServiceImpl implements WardrobeService {
         this.bindingService = bindingService;
         this.pluginConfig = pluginConfig;
         this.auditLogger = auditLogger;
+        PluginConfig.CacheSettings cacheSettings = pluginConfig.cacheSettings();
+        long generationCacheSize = cacheSettings == null ? 100_000L : cacheSettings.maxSize();
+        long generationExpirySeconds = cacheSettings == null ? 600L : cacheSettings.expireAfterSeconds();
+        this.cacheGenerations = Caffeine.newBuilder()
+                .maximumSize(generationCacheSize)
+                .expireAfterAccess(generationExpirySeconds, TimeUnit.SECONDS)
+                .build();
     }
 
     @Override
@@ -94,31 +106,57 @@ public final class WardrobeServiceImpl implements WardrobeService {
         }
 
         return getProfile(playerId).thenCompose(profile -> onPlayer(player, () -> {
+            if (profile.getSet(slot) != null) {
+                return SaveCapture.denied(new WardrobeResult(
+                        ResultCode.DENIED_EMPTY_ARMOR_REQUIRED,
+                        "error.wardrobe-slot-not-empty",
+                        Map.of("slot", String.valueOf(slot))));
+            }
             WardrobePreSaveEvent event = new WardrobePreSaveEvent(player, slot);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
-                return SaveCapture.cancelledCapture();
+                return SaveCapture.denied(new WardrobeResult(
+                        ResultCode.DENIED_EVENT_CANCELLED,
+                        "error.event-cancelled",
+                        Map.of()));
             }
             PlayerInventory inventory = player.getInventory();
-            WardrobeSet current = profile.getSet(slot);
-            String name = current == null || current.name().isBlank() ? "Slot " + slot : current.name();
-            boolean favorite = current != null && current.favorite();
+            if (bindingService.hasAnyBoundArmor(player)) {
+                return SaveCapture.denied(new WardrobeResult(
+                        ResultCode.DENIED_EVENT_CANCELLED,
+                        "error.bound-armor-locked",
+                        Map.of()));
+            }
+            if (hasInvalidArmorAmount(inventory)) {
+                return SaveCapture.denied(new WardrobeResult(
+                        ResultCode.DENIED_INVALID_SLOT,
+                        "error.invalid-item-amount",
+                        Map.of()));
+            }
+            ArmorRuntimeState removedState = captureArmorRuntimeState(player);
             WardrobeSet newSet = new WardrobeSet(
                     slot,
-                    name,
-                    favorite,
+                    "Slot " + slot,
+                    false,
                     bindingService.unbindCopy(inventory.getHelmet()),
                     bindingService.unbindCopy(inventory.getChestplate()),
                     bindingService.unbindCopy(inventory.getLeggings()),
                     bindingService.unbindCopy(inventory.getBoots())
             );
-            return SaveCapture.of(newSet);
-        })).thenCompose(capture -> {
-            if (capture.cancelled()) {
-                return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_EVENT_CANCELLED, "error.event-cancelled", Map.of()));
+            if (!newSet.hasAnyArmorPiece()) {
+                return SaveCapture.denied(new WardrobeResult(
+                        ResultCode.DENIED_NOTHING_SAVED,
+                        "error.no-armor-to-save",
+                        Map.of()));
             }
-            if (capture.wardrobeSet() == null || !capture.wardrobeSet().hasAnyArmorPiece()) {
-                return CompletableFuture.completedFuture(new WardrobeResult(ResultCode.DENIED_NOTHING_SAVED, "error.no-armor-to-save", Map.of()));
+            inventory.setHelmet(null);
+            inventory.setChestplate(null);
+            inventory.setLeggings(null);
+            inventory.setBoots(null);
+            return SaveCapture.of(newSet, removedState);
+        })).thenCompose(capture -> {
+            if (capture.deniedResult() != null) {
+                return CompletableFuture.completedFuture(capture.deniedResult());
             }
             return repository.saveSet(playerId, capture.wardrobeSet())
                     .thenCompose(ignored -> refreshProfileCache(playerId))
@@ -134,9 +172,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
                         });
                         return new WardrobeResult(ResultCode.SUCCESS_SAVED, "success.saved", Map.of("slot", String.valueOf(slot), "name", capture.wardrobeSet().name()));
                     })
-                    .exceptionally(ex -> {
+                    .exceptionallyCompose(ex -> {
                         auditLogger.error("SAVE_SET_ERROR", playerId, player.getName(), ex, Map.of("slot", slot));
-                        return storageErrorResult(ex);
+                        return restoreSavedArmor(player, capture.removedState())
+                                .thenApply(ignored -> storageErrorResult(ex));
                     });
         });
     }
@@ -177,7 +216,8 @@ public final class WardrobeServiceImpl implements WardrobeService {
                                 Map.of("slot", String.valueOf(slot), "name", name)),
                         previousState,
                         null,
-                        -1);
+                        -1,
+                        false);
             }
 
             if (!PermissionNodes.has(player, "bypass.cooldown")) {
@@ -215,16 +255,21 @@ public final class WardrobeServiceImpl implements WardrobeService {
             ItemStack chestplate = set.chestplate();
             ItemStack leggings = set.leggings();
             ItemStack boots = set.boots();
+            boolean displacedPhysicalArmor = false;
             if (hasPiece(helmet)) {
+                displacedPhysicalArmor |= returnDisplacedArmor(player, inventory.getHelmet(), playerId);
                 inventory.setHelmet(bindingService.bindCopy(helmet, playerId, slot, "helmet"));
             }
             if (hasPiece(chestplate)) {
+                displacedPhysicalArmor |= returnDisplacedArmor(player, inventory.getChestplate(), playerId);
                 inventory.setChestplate(bindingService.bindCopy(chestplate, playerId, slot, "chestplate"));
             }
             if (hasPiece(leggings)) {
+                displacedPhysicalArmor |= returnDisplacedArmor(player, inventory.getLeggings(), playerId);
                 inventory.setLeggings(bindingService.bindCopy(leggings, playerId, slot, "leggings"));
             }
             if (hasPiece(boots)) {
+                displacedPhysicalArmor |= returnDisplacedArmor(player, inventory.getBoots(), playerId);
                 inventory.setBoots(bindingService.bindCopy(boots, playerId, slot, "boots"));
             }
             bindingService.setActiveSlot(playerId, slot);
@@ -232,7 +277,8 @@ public final class WardrobeServiceImpl implements WardrobeService {
                     new WardrobeResult(ResultCode.SUCCESS_EQUIPPED, "success.equipped", Map.of("slot", String.valueOf(slot), "name", set.name())),
                     previousState,
                     set,
-                    slot);
+                    slot,
+                    displacedPhysicalArmor);
         }).thenCompose(attempt -> {
             if (!attempt.result().isSuccess()) {
                 auditBlocked("EQUIP_DENIED", player, playerId, attempt.result(), Map.of("slot", slot));
@@ -252,7 +298,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
                     })
                     .exceptionallyCompose(ex -> {
                         auditLogger.error("EQUIP_ERROR", playerId, player.getName(), ex, Map.of("slot", slot));
-                        return restorePlayerState(player, attempt.previousState())
+                        return restorePlayerState(player, attempt.previousState(), attempt.displacedPhysicalArmor())
                                 .thenApply(ignored -> storageErrorResult(ex));
                     });
         }));
@@ -361,6 +407,10 @@ public final class WardrobeServiceImpl implements WardrobeService {
             return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
                     new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()), null));
         }
+        if (itemStack.getAmount() != 1) {
+            return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
+                    new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.invalid-item-amount", Map.of()), null));
+        }
         if (!isValidPieceType(piece) || !isMatchingArmorPiece(itemStack.getType(), piece)) {
             return CompletableFuture.completedFuture(new ArmorPieceMutationResult(
                     new WardrobeResult(ResultCode.DENIED_INVALID_SLOT, "error.wrong-armor-type", Map.of()), null));
@@ -413,9 +463,14 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     public void invalidateCache(UUID playerId) {
-        cacheGenerations.merge(playerId, 1L, Long::sum);
+        cacheGenerations.put(playerId, generationSequence.incrementAndGet());
         cache.invalidate(playerId);
         slotLimitService.invalidate(playerId);
+    }
+
+    public void releaseSession(UUID playerId) {
+        invalidateCache(playerId);
+        cooldowns.remove(playerId);
     }
 
     public Optional<WardrobeProfile> cachedProfile(UUID playerId) {
@@ -436,7 +491,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     private long cacheGeneration(UUID playerId) {
-        return cacheGenerations.getOrDefault(playerId, 0L);
+        return cacheGenerations.get(playerId, ignored -> generationSequence.incrementAndGet());
     }
 
     public long getRemainingCooldownMillis(UUID playerId) {
@@ -542,6 +597,17 @@ public final class WardrobeServiceImpl implements WardrobeService {
             future.completeExceptionally(throwable);
         }
         return future;
+    }
+
+    private boolean hasInvalidArmorAmount(PlayerInventory inventory) {
+        return hasInvalidPieceAmount(inventory.getHelmet())
+                || hasInvalidPieceAmount(inventory.getChestplate())
+                || hasInvalidPieceAmount(inventory.getLeggings())
+                || hasInvalidPieceAmount(inventory.getBoots());
+    }
+
+    private boolean hasInvalidPieceAmount(ItemStack itemStack) {
+        return hasPiece(itemStack) && itemStack.getAmount() != 1;
     }
 
     <T> CompletableFuture<T> runExclusive(UUID playerId, Supplier<CompletableFuture<T>> operation) {
@@ -699,15 +765,23 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     private CompletableFuture<Void> restorePlayerState(Player player, ArmorRuntimeState previousState) {
+        return restorePlayerState(player, previousState, false);
+    }
+
+    private CompletableFuture<Void> restorePlayerState(
+            Player player,
+            ArmorRuntimeState previousState,
+            boolean physicalArmorWasReturned) {
         if (previousState == null) {
             return CompletableFuture.completedFuture(null);
         }
         return this.<Void>onPlayer(player, () -> {
             PlayerInventory inventory = player.getInventory();
-            inventory.setHelmet(cloneItem(previousState.helmet()));
-            inventory.setChestplate(cloneItem(previousState.chestplate()));
-            inventory.setLeggings(cloneItem(previousState.leggings()));
-            inventory.setBoots(cloneItem(previousState.boots()));
+            UUID playerId = player.getUniqueId();
+            inventory.setHelmet(restoredRuntimePiece(previousState.helmet(), physicalArmorWasReturned, playerId));
+            inventory.setChestplate(restoredRuntimePiece(previousState.chestplate(), physicalArmorWasReturned, playerId));
+            inventory.setLeggings(restoredRuntimePiece(previousState.leggings(), physicalArmorWasReturned, playerId));
+            inventory.setBoots(restoredRuntimePiece(previousState.boots(), physicalArmorWasReturned, playerId));
             if (previousState.activeSlot() > 0) {
                 bindingService.setActiveSlot(player.getUniqueId(), previousState.activeSlot());
             } else {
@@ -715,6 +789,16 @@ public final class WardrobeServiceImpl implements WardrobeService {
             }
             return null;
         }).exceptionally(ex -> (Void) null);
+    }
+
+    private ItemStack restoredRuntimePiece(ItemStack previous, boolean physicalArmorWasReturned, UUID playerId) {
+        if (bindingService.isBound(previous) && !bindingService.isBoundTo(previous, playerId)) {
+            return null;
+        }
+        if (physicalArmorWasReturned && hasPiece(previous) && !bindingService.isBound(previous)) {
+            return null;
+        }
+        return cloneItem(previous);
     }
 
     private ArmorRuntimeState captureArmorRuntimeState(Player player) {
@@ -776,6 +860,60 @@ public final class WardrobeServiceImpl implements WardrobeService {
         return new WardrobeSet(baseSet.slot(), baseSet.name(), baseSet.favorite(), helmet, chestplate, leggings, boots);
     }
 
+    private CompletableFuture<Void> restoreSavedArmor(Player player, ArmorRuntimeState removedState) {
+        if (removedState == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return this.<Void>onPlayer(player, () -> {
+            PlayerInventory inventory = player.getInventory();
+            restoreArmorPiece(player, inventory.getHelmet(), removedState.helmet(), inventory::setHelmet);
+            restoreArmorPiece(player, inventory.getChestplate(), removedState.chestplate(), inventory::setChestplate);
+            restoreArmorPiece(player, inventory.getLeggings(), removedState.leggings(), inventory::setLeggings);
+            restoreArmorPiece(player, inventory.getBoots(), removedState.boots(), inventory::setBoots);
+            return null;
+        }).exceptionally(ex -> {
+            auditLogger.error(
+                    "SAVE_SET_RESTORE_ERROR",
+                    player.getUniqueId(),
+                    player.getName(),
+                    ex,
+                    Map.of());
+            return null;
+        });
+    }
+
+    private void restoreArmorPiece(
+            Player player,
+            ItemStack current,
+            ItemStack removed,
+            java.util.function.Consumer<ItemStack> armorSetter) {
+        if (!hasPiece(removed)) {
+            return;
+        }
+        if (!hasPiece(current)) {
+            armorSetter.accept(cloneItem(removed));
+            return;
+        }
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(cloneItem(removed));
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+    }
+
+    private boolean returnDisplacedArmor(Player player, ItemStack itemStack, UUID owner) {
+        if (!hasPiece(itemStack) || bindingService.isBoundTo(itemStack, owner)) {
+            return false;
+        }
+        if (bindingService.isBound(itemStack)) {
+            return false;
+        }
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(cloneItem(itemStack));
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+        return true;
+    }
+
     private ItemStack readPiece(WardrobeSet set, String piece) {
         if (set == null) {
             return null;
@@ -814,6 +952,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
         details.put("requestedSlot", requestedSlot);
         details.put("selectedSlot", attempt.selectedSlot());
         details.put("code", attempt.result().code());
+        details.put("displacedPhysicalArmor", attempt.displacedPhysicalArmor());
         if (attempt.equippedSet() != null) {
             details.putAll(setAuditDetails(attempt.equippedSet().slot(), attempt.equippedSet()));
         }
@@ -888,14 +1027,17 @@ public final class WardrobeServiceImpl implements WardrobeService {
         return ArmorPieceMatcher.matchesWardrobePiece(targetPiece, material);
     }
 
-    private record SaveCapture(boolean cancelled, WardrobeSet wardrobeSet) {
+    private record SaveCapture(
+            WardrobeResult deniedResult,
+            WardrobeSet wardrobeSet,
+            ArmorRuntimeState removedState) {
 
-        static SaveCapture cancelledCapture() {
-            return new SaveCapture(true, null);
+        static SaveCapture denied(WardrobeResult result) {
+            return new SaveCapture(result, null, null);
         }
 
-        static SaveCapture of(WardrobeSet set) {
-            return new SaveCapture(false, set);
+        static SaveCapture of(WardrobeSet set, ArmorRuntimeState removedState) {
+            return new SaveCapture(null, set, removedState);
         }
     }
 
@@ -903,14 +1045,20 @@ public final class WardrobeServiceImpl implements WardrobeService {
             WardrobeResult result,
             ArmorRuntimeState previousState,
             WardrobeSet equippedSet,
-            int selectedSlot
+            int selectedSlot,
+            boolean displacedPhysicalArmor
     ) {
         static EquipAttempt denied(WardrobeResult result) {
-            return new EquipAttempt(result, null, null, -1);
+            return new EquipAttempt(result, null, null, -1, false);
         }
 
-        static EquipAttempt mutated(WardrobeResult result, ArmorRuntimeState previousState, WardrobeSet equippedSet, int selectedSlot) {
-            return new EquipAttempt(result, previousState, equippedSet, selectedSlot);
+        static EquipAttempt mutated(
+                WardrobeResult result,
+                ArmorRuntimeState previousState,
+                WardrobeSet equippedSet,
+                int selectedSlot,
+                boolean displacedPhysicalArmor) {
+            return new EquipAttempt(result, previousState, equippedSet, selectedSlot, displacedPhysicalArmor);
         }
     }
 

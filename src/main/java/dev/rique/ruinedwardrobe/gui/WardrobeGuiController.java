@@ -8,6 +8,7 @@ import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.core.PermissionNodes;
 import dev.rique.ruinedwardrobe.core.SlotLimitServiceImpl;
 import dev.rique.ruinedwardrobe.core.WardrobeArmorBindingService;
+import dev.rique.ruinedwardrobe.core.WardrobeAuditLogger;
 import dev.rique.ruinedwardrobe.core.WardrobeServiceImpl;
 import dev.rique.ruinedwardrobe.lang.MessageService;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
@@ -53,6 +54,7 @@ public final class WardrobeGuiController {
     private final WardrobeServiceImpl wardrobeService;
     private final SlotLimitServiceImpl slotLimitService;
     private final WardrobeArmorBindingService bindingService;
+    private final WardrobeAuditLogger auditLogger;
     private final Set<UUID> pendingActions = ConcurrentHashMap.newKeySet();
 
     public WardrobeGuiController(
@@ -63,6 +65,26 @@ public final class WardrobeGuiController {
             WardrobeServiceImpl wardrobeService,
             SlotLimitServiceImpl slotLimitService,
             WardrobeArmorBindingService bindingService) {
+        this(
+                schedulerAdapter,
+                guiConfig,
+                pluginConfig,
+                messageService,
+                wardrobeService,
+                slotLimitService,
+                bindingService,
+                WardrobeAuditLogger.disabled());
+    }
+
+    public WardrobeGuiController(
+            SchedulerAdapter schedulerAdapter,
+            GuiConfig guiConfig,
+            PluginConfig pluginConfig,
+            MessageService messageService,
+            WardrobeServiceImpl wardrobeService,
+            SlotLimitServiceImpl slotLimitService,
+            WardrobeArmorBindingService bindingService,
+            WardrobeAuditLogger auditLogger) {
         this.schedulerAdapter = schedulerAdapter;
         this.guiConfig = guiConfig;
         this.pluginConfig = pluginConfig;
@@ -70,6 +92,7 @@ public final class WardrobeGuiController {
         this.wardrobeService = wardrobeService;
         this.slotLimitService = slotLimitService;
         this.bindingService = bindingService;
+        this.auditLogger = auditLogger;
     }
 
     public void openMain(Player viewer, UUID targetId, int page) {
@@ -86,6 +109,14 @@ public final class WardrobeGuiController {
         int clickedSlot = event.getRawSlot();
         ClickType clickType = event.getClick();
         GuiSession session = holder.session();
+        if (!session.viewerId().equals(viewer.getUniqueId())) {
+            closeInvalidSession(viewer);
+            return;
+        }
+        if (!WardrobeClickPolicy.isAllowedDirectAction(event)) {
+            resyncInventory(viewer);
+            return;
+        }
 
         // Navigation buttons
         if (slotMatches(guiConfig.previousPageSlot(), clickedSlot)) {
@@ -137,6 +168,10 @@ public final class WardrobeGuiController {
      * Handle cursor drag into a single wardrobe armor slot.
      */
     public void handleMainDrag(Player viewer, WardrobeMenuHolder holder, int rawSlot, ItemStack draggedItem) {
+        if (!holder.session().viewerId().equals(viewer.getUniqueId())) {
+            closeInvalidSession(viewer);
+            return;
+        }
         ArmorPiece piece = resolveArmorPieceFromSlot(rawSlot);
         if (piece == null) {
             return;
@@ -500,7 +535,25 @@ public final class WardrobeGuiController {
         if (piece == null || itemStack == null || itemStack.getType().isAir()) {
             return;
         }
-        wardrobeService.restoreArmorPieceIfEmpty(targetId, wardrobeSlot, piece.key(), itemStack);
+        wardrobeService.restoreArmorPieceIfEmpty(targetId, wardrobeSlot, piece.key(), itemStack)
+                .thenAccept(restored -> {
+                    if (!restored) {
+                        auditLogger.record(
+                                "ARMOR_RETURN_CONFLICT",
+                                targetId,
+                                null,
+                                Map.of("slot", wardrobeSlot, "piece", piece.key()));
+                    }
+                })
+                .exceptionally(ex -> {
+                    auditLogger.error(
+                            "ARMOR_RETURN_ERROR",
+                            targetId,
+                            null,
+                            ex,
+                            Map.of("slot", wardrobeSlot, "piece", piece.key()));
+                    return null;
+                });
     }
 
     private void applyFeedback(Player player, WardrobeResult result) {
@@ -529,6 +582,7 @@ public final class WardrobeGuiController {
         return itemStack;
     }
 
+    @SuppressWarnings("deprecation")
     private ItemStack buildTemplate(Player player, GuiConfig.GuiItemTemplate template,
             Map<String, String> placeholders) {
         Material material = safeMaterial(template.material());
@@ -669,6 +723,17 @@ public final class WardrobeGuiController {
             skipped.run();
             return false;
         }
+    }
+
+    public void resyncInventory(Player viewer) {
+        runForViewer(viewer, viewer::updateInventory);
+    }
+
+    public void closeInvalidSession(Player viewer) {
+        runForViewer(viewer, () -> {
+            viewer.closeInventory();
+            viewer.updateInventory();
+        });
     }
 
     private String failureMessage(Throwable throwable) {

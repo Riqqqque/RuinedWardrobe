@@ -4,13 +4,25 @@ import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.inventory.EquipmentSlot;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public final class ArmorPieceMatcher {
+
+    private static final Set<Material> SKULL_ITEMS = EnumSet.of(
+            Material.PLAYER_HEAD,
+            Material.CREEPER_HEAD,
+            Material.DRAGON_HEAD,
+            Material.PIGLIN_HEAD,
+            Material.SKELETON_SKULL,
+            Material.WITHER_SKELETON_SKULL,
+            Material.ZOMBIE_HEAD);
 
     private ArmorPieceMatcher() {
     }
 
     public static boolean matchesWardrobePiece(String piece, Material material) {
-        if (piece == null || material == null || material.isAir()) {
+        if (piece == null || isAir(material)) {
             return false;
         }
         return switch (piece) {
@@ -23,7 +35,7 @@ public final class ArmorPieceMatcher {
     }
 
     public static String resolvePlayerEquipmentPiece(Material material) {
-        if (material == null || material.isAir()) {
+        if (isAir(material)) {
             return null;
         }
         EquipmentSlot slot = material.getEquipmentSlot();
@@ -40,7 +52,9 @@ public final class ArmorPieceMatcher {
     }
 
     private static boolean isHeadArmor(Material material) {
-        return Tag.ITEMS_HEAD_ARMOR.isTagged(material);
+        return SKULL_ITEMS.contains(material)
+                || Tag.ITEMS_HEAD_ARMOR.isTagged(material)
+                || Tag.ITEMS_SKULLS.isTagged(material);
     }
 
     private static boolean isChestArmor(Material material) {
@@ -54,5 +68,12 @@ public final class ArmorPieceMatcher {
 
     private static boolean isFootArmor(Material material) {
         return Tag.ITEMS_FOOT_ARMOR.isTagged(material);
+    }
+
+    private static boolean isAir(Material material) {
+        return material == null
+                || material == Material.AIR
+                || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR;
     }
 }

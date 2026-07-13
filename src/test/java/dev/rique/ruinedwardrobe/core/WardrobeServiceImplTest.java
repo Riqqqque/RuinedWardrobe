@@ -41,6 +41,146 @@ import static org.mockito.Mockito.when;
 class WardrobeServiceImplTest {
 
     @Test
+    void saveSetConsumesPhysicalArmorAfterCapturingIt() {
+        UUID playerId = UUID.randomUUID();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = mock(WardrobeCache.class);
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                immediateScheduler(),
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                bindingService,
+                mock(PluginConfig.class),
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        PluginManager pluginManager = mock(PluginManager.class);
+        ItemStack physicalHelmet = armorPiece();
+        ItemStack storedHelmet = armorPiece();
+        WardrobeProfile emptyProfile = new WardrobeProfile(playerId, 0, -1, 1L, Map.of());
+        WardrobeProfile refreshedProfile = new WardrobeProfile(
+                playerId, 0, -1, 2L, Map.of(1, new WardrobeSet(1, "Slot 1", false, storedHelmet, null, null, null)));
+
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player.getName()).thenReturn("Rique");
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(player.getInventory()).thenReturn(inventory);
+        when(inventory.getHelmet()).thenReturn(physicalHelmet);
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(cache.get(playerId)).thenReturn(Optional.of(emptyProfile));
+        when(bindingService.unbindCopy(physicalHelmet)).thenReturn(storedHelmet);
+        when(repository.saveSet(eq(playerId), any(WardrobeSet.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        when(repository.loadProfile(playerId)).thenReturn(CompletableFuture.completedFuture(refreshedProfile));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+            bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+
+            WardrobeResult result = service.saveSet(playerId, 1).join();
+
+            assertEquals(ResultCode.SUCCESS_SAVED, result.code());
+            verify(inventory).setHelmet(null);
+            verify(repository).saveSet(eq(playerId), any(WardrobeSet.class));
+        }
+    }
+
+    @Test
+    void saveSetCannotOverwriteExistingStoredItems() {
+        UUID playerId = UUID.randomUUID();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = mock(WardrobeCache.class);
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                immediateScheduler(),
+                repository,
+                cache,
+                slotLimitService,
+                mock(RestrictionServiceImpl.class),
+                mock(WardrobeArmorBindingService.class),
+                mock(PluginConfig.class),
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        WardrobeSet existing = new WardrobeSet(1, "Existing", false, armorPiece(), null, null, null);
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(player.getInventory()).thenReturn(inventory);
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(cache.get(playerId)).thenReturn(Optional.of(
+                new WardrobeProfile(playerId, 0, -1, 1L, Map.of(1, existing))));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+
+            WardrobeResult result = service.saveSet(playerId, 1).join();
+
+            assertEquals(ResultCode.DENIED_EMPTY_ARMOR_REQUIRED, result.code());
+            verify(repository, never()).saveSet(any(UUID.class), any(WardrobeSet.class));
+            verify(inventory, never()).setHelmet(any());
+        }
+    }
+
+    @Test
+    void emptyCheckBypassReturnsDisplacedArmorInsteadOfOverwritingIt() {
+        UUID playerId = UUID.randomUUID();
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeCache cache = mock(WardrobeCache.class);
+        SlotLimitServiceImpl slotLimitService = mock(SlotLimitServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        PluginConfig pluginConfig = mock(PluginConfig.class);
+        WardrobeServiceImpl service = new WardrobeServiceImpl(
+                immediateScheduler(), repository, cache, slotLimitService,
+                mock(RestrictionServiceImpl.class), bindingService, pluginConfig,
+                WardrobeAuditLogger.disabled());
+
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        PluginManager pluginManager = mock(PluginManager.class);
+        ItemStack storedHelmet = armorPiece();
+        ItemStack physicalHelmet = armorPiece();
+        ItemStack boundHelmet = armorPiece();
+        WardrobeSet set = new WardrobeSet(1, "Slot 1", false, storedHelmet, null, null, null);
+        WardrobeProfile profile = new WardrobeProfile(playerId, 0, -1, 1L, Map.of(1, set));
+        WardrobeProfile refreshed = new WardrobeProfile(playerId, 0, 1, 2L, Map.of(1, set));
+
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player.getName()).thenReturn("Rique");
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.use")).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.bypass.emptycheck")).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.bypass.cooldown")).thenReturn(true);
+        when(player.hasPermission("ruinedwardrobe.bypass.restrictions")).thenReturn(true);
+        when(player.getInventory()).thenReturn(inventory);
+        when(inventory.getHelmet()).thenReturn(physicalHelmet);
+        when(inventory.addItem(any(ItemStack.class))).thenReturn(new java.util.HashMap<>());
+        when(slotLimitService.getMaxSlots(player)).thenReturn(9);
+        when(cache.get(playerId)).thenReturn(Optional.of(profile));
+        when(bindingService.bindCopy(any(ItemStack.class), eq(playerId), eq(1), eq("helmet")))
+                .thenReturn(boundHelmet);
+        when(repository.setSelectedSlot(playerId, 1)).thenReturn(CompletableFuture.completedFuture(null));
+        when(repository.loadProfile(playerId)).thenReturn(CompletableFuture.completedFuture(refreshed));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayer(playerId)).thenReturn(player);
+            bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+
+            WardrobeResult result = service.equipSet(playerId, 1).join();
+
+            assertEquals(ResultCode.SUCCESS_EQUIPPED, result.code());
+            verify(inventory).addItem(physicalHelmet);
+            verify(inventory).setHelmet(boundHelmet);
+        }
+    }
+
+    @Test
     void lateProfileLoadDoesNotRepopulateCacheAfterInvalidation() {
         UUID playerId = UUID.randomUUID();
         SchedulerAdapter schedulerAdapter = immediateScheduler();
@@ -628,6 +768,7 @@ class WardrobeServiceImplTest {
         org.bukkit.Material material = mock(org.bukkit.Material.class);
         when(material.isAir()).thenReturn(false);
         when(itemStack.getType()).thenReturn(material);
+        when(itemStack.getAmount()).thenReturn(1);
         when(itemStack.clone()).thenReturn(itemStack);
         return itemStack;
     }

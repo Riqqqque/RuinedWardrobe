@@ -36,6 +36,7 @@ Minimum checklist:
 - Confirm the DB server accepts connections from the Minecraft server.
 - Keep Hikari pool size and DB worker threads close to each other.
 - Watch global connection limits if several plugins share the same DB host.
+- Use a normal TCP host and port. Windows GSSAPI, named pipes, and Unix sockets need optional connector dependencies that are not bundled.
 
 ## Migration Command
 
@@ -63,6 +64,7 @@ If the target storage already contains wardrobe data, RuinedWardrobe stops befor
 | --- | --- |
 | Source read | Reads a full snapshot of players, sets, and meta rows. |
 | Source backup | Writes a full backup before copying data. |
+| Live armor flush | Saves pending online wardrobe armor before the source snapshot is read. |
 | Target safety check | Refuses to overwrite non-empty target storage unless `--force` is present. |
 | Target backup | Writes a target backup before forced overwrite. |
 | Normalization | Fixes obviously broken snapshot values before write. |

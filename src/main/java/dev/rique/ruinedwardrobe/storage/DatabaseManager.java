@@ -6,6 +6,7 @@ import dev.rique.ruinedwardrobe.config.DatabaseType;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -39,7 +40,7 @@ public final class DatabaseManager {
         int poolSize;
 
         if (storage.type() == DatabaseType.SQLITE) {
-            File databaseFile = new File(dataFolder, storage.sqliteFile());
+            File databaseFile = resolveSqliteDatabaseFile(dataFolder, storage.sqliteFile());
             File parent = databaseFile.getParentFile();
             if (parent != null && !parent.exists() && !parent.mkdirs()) {
                 throw new DatabaseException("Failed to create SQLite database directory: " + parent.getAbsolutePath());
@@ -86,6 +87,20 @@ public final class DatabaseManager {
                 },
                 new ThreadPoolExecutor.AbortPolicy()
         );
+    }
+
+    static File resolveSqliteDatabaseFile(File dataFolder, String configuredPath) {
+        try {
+            File canonicalDataFolder = dataFolder.getCanonicalFile();
+            File databaseFile = new File(canonicalDataFolder, configuredPath).getCanonicalFile();
+            if (!databaseFile.toPath().startsWith(canonicalDataFolder.toPath())
+                    || databaseFile.equals(canonicalDataFolder)) {
+                throw new DatabaseException("storage.sqlite.file must stay inside the RuinedWardrobe data folder");
+            }
+            return databaseFile;
+        } catch (IOException ex) {
+            throw new DatabaseException("Failed to resolve storage.sqlite.file", ex);
+        }
     }
 
     public void shutdown() {

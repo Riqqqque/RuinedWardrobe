@@ -86,7 +86,7 @@ Check the current Paper `26.2` API line:
 Expected jar:
 
 ```text
-build/libs/RuinedWardrobe-1.0.10.jar
+build/libs/RuinedWardrobe-1.0.15.jar
 ```
 
 Check these before sending a jar to anyone:

@@ -148,9 +148,10 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
                 messageService,
                 wardrobeService,
                 slotLimitService,
-                armorBindingService
+                armorBindingService,
+                auditLogger
         );
-        migrationService = new MigrationService(this, pluginConfig, repository);
+        migrationService = new MigrationService(this, pluginConfig, repository, armorSyncService);
         versionSyncService = new VersionSyncService(this, schedulerAdapter, repository, wardrobeService, pluginConfig.syncSettings());
         healthMonitor = new HealthMonitor(this, schedulerAdapter, cache, databaseManager, versionSyncService, pluginConfig.healthLogSeconds());
 
@@ -234,13 +235,15 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerSessionListener(
                 wardrobeService,
                 repository,
-                pluginConfig.sessionSettings()), this);
+                pluginConfig.sessionSettings(),
+                auditLogger), this);
         Bukkit.getPluginManager().registerEvents(
                 new WardrobeArmorProtectionListener(
                         armorBindingService,
                         armorSyncService,
                         auditLogger,
                         messageService,
+                        schedulerAdapter,
                         configManager.pluginConfig().antiDupeSettings().strictContainerLockEnabled()),
                 this);
     }

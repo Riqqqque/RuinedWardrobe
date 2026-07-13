@@ -11,12 +11,8 @@ public final class SchedulerFactory {
     public static SchedulerAdapter create(JavaPlugin plugin) {
         boolean foliaDetected = isFolia();
         if (foliaDetected) {
-            try {
-                plugin.getLogger().info("Scheduler mode: Folia");
-                return new FoliaSchedulerAdapter(plugin);
-            } catch (Throwable throwable) {
-                plugin.getLogger().warning("Folia scheduler initialization failed, falling back to Paper scheduler: " + throwable.getMessage());
-            }
+            plugin.getLogger().info("Scheduler mode: Folia");
+            return new FoliaSchedulerAdapter(plugin);
         }
         plugin.getLogger().info("Scheduler mode: Paper");
         return new PaperSchedulerAdapter(plugin);

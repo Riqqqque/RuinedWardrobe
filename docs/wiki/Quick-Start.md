@@ -85,7 +85,7 @@ On Linux:
 Jar output:
 
 ```text
-build/libs/RuinedWardrobe-1.0.10.jar
+build/libs/RuinedWardrobe-1.0.15.jar
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.

@@ -13,6 +13,7 @@
 - `death.keep-wardrobe-on-death`: optionally prevents equipped wardrobe armor from dropping or being removed from saved slots when keepInventory is off.
 - `storage.type`: `SQLITE` or `MYSQL`.
 - `storage.sqlite.file`: relative path to the SQLite database file.
+- MySQL/MariaDB uses TCP host/port connections; Windows GSSAPI, named pipes, and Unix sockets are not bundled.
 - `performance.cache.*`: profile cache size and idle expiry.
 - `performance.session.*`: optional join-time DB work for preloading or external player-row tools.
 - `performance.sync.*`: MySQL cross-server polling interval and batch size.

@@ -5,9 +5,11 @@ import dev.rique.ruinedwardrobe.core.WardrobeArmorBindingService;
 import dev.rique.ruinedwardrobe.core.WardrobeArmorSyncService;
 import dev.rique.ruinedwardrobe.gui.WardrobeMenuHolder;
 import dev.rique.ruinedwardrobe.lang.MessageService;
+import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.util.ArmorPieceMatcher;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -41,6 +43,7 @@ public final class WardrobeArmorProtectionListener implements Listener {
     private final WardrobeArmorSyncService armorSyncService;
     private final WardrobeAuditLogger auditLogger;
     private final MessageService messageService;
+    private final SchedulerAdapter schedulerAdapter;
     private final boolean strictContainerLockEnabled;
     private final Map<UUID, Long> lastLockMessageAt = new ConcurrentHashMap<>();
 
@@ -49,12 +52,14 @@ public final class WardrobeArmorProtectionListener implements Listener {
             WardrobeArmorSyncService armorSyncService,
             WardrobeAuditLogger auditLogger,
             MessageService messageService,
+            SchedulerAdapter schedulerAdapter,
             boolean strictContainerLockEnabled
     ) {
         this.bindingService = bindingService;
         this.armorSyncService = armorSyncService;
         this.auditLogger = auditLogger;
         this.messageService = messageService;
+        this.schedulerAdapter = schedulerAdapter;
         this.strictContainerLockEnabled = strictContainerLockEnabled;
     }
 
@@ -94,6 +99,13 @@ public final class WardrobeArmorProtectionListener implements Listener {
             return;
         }
 
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            if (touchesBoundClickItem(player, event)) {
+                rejectBoundCreativeAction(player, event);
+            }
+            return;
+        }
+
         if (shouldLockEquippedArmorClick(player, event)) {
             event.setCancelled(true);
             sendRateLimited(player, "error.bound-armor-locked");
@@ -107,7 +119,9 @@ public final class WardrobeArmorProtectionListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        normalizeDetachedClickItems(player, event);
+        if (touchesBoundClickItem(player, event)) {
+            rejectBoundCreativeAction(player, event);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -124,6 +138,18 @@ public final class WardrobeArmorProtectionListener implements Listener {
         }
         if (bindingService.isBound(event.getOldCursor())) {
             event.setCancelled(true);
+            if (player.getGameMode() == GameMode.CREATIVE) {
+                sendRateLimited(player, "error.bound-armor-locked");
+                scheduleReconciliation(player, "creative-drag");
+                return;
+            }
+            if (bindingService.hasCanonicalArmorCopy(player, event.getOldCursor())) {
+                event.setCursor(null);
+                auditDuplicateRemoval(player, "drag-cursor", 1);
+                resyncInventory(player);
+                return;
+            }
+            trackDetachedSource(player, event.getOldCursor());
             event.setCursor(bindingService.unbindCopy(event.getOldCursor()));
             requestArmorSync(player);
             return;
@@ -138,6 +164,16 @@ public final class WardrobeArmorProtectionListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         ItemStack dropped = event.getItemDrop().getItemStack();
         if (bindingService.isBound(dropped)) {
+            if (event.getPlayer().getGameMode() == GameMode.CREATIVE) {
+                rejectBoundCreativeAction(event.getPlayer(), event);
+                return;
+            }
+            if (bindingService.hasCanonicalArmorCopy(event.getPlayer(), dropped)) {
+                event.setCancelled(true);
+                scheduleReconciliation(event.getPlayer(), "duplicate-drop");
+                return;
+            }
+            trackDetachedSource(event.getPlayer(), dropped);
             event.getItemDrop().setItemStack(bindingService.unbindCopy(dropped));
             requestArmorSync(event.getPlayer());
         }
@@ -145,17 +181,35 @@ public final class WardrobeArmorProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSwap(PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+        boolean boundMainHand = bindingService.isBound(event.getMainHandItem());
+        boolean boundOffHand = bindingService.isBound(event.getOffHandItem());
+        if (!boundMainHand && !boundOffHand) {
+            return;
+        }
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            rejectBoundCreativeAction(player, event);
+            return;
+        }
+        if (bindingService.hasCanonicalArmorCopy(player, event.getMainHandItem())
+                || bindingService.hasCanonicalArmorCopy(player, event.getOffHandItem())) {
+            event.setCancelled(true);
+            scheduleReconciliation(player, "duplicate-hand-swap");
+            return;
+        }
         boolean changed = false;
-        if (bindingService.isBound(event.getMainHandItem())) {
+        if (boundMainHand) {
+            trackDetachedSource(player, event.getMainHandItem());
             event.setMainHandItem(bindingService.unbindCopy(event.getMainHandItem()));
             changed = true;
         }
-        if (bindingService.isBound(event.getOffHandItem())) {
+        if (boundOffHand) {
+            trackDetachedSource(player, event.getOffHandItem());
             event.setOffHandItem(bindingService.unbindCopy(event.getOffHandItem()));
             changed = true;
         }
         if (changed) {
-            requestArmorSync(event.getPlayer());
+            requestArmorSync(player);
         }
     }
 
@@ -210,14 +264,7 @@ public final class WardrobeArmorProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        int removedItems = bindingService.sanitizeForeignBoundItems(player);
-        if (removedItems > 0) {
-            auditLogger.record(
-                    "FOREIGN_BOUND_ARMOR_REMOVED",
-                    player.getUniqueId(),
-                    player.getName(),
-                    Map.of("source", "join", "removedItems", removedItems));
-        }
+        reconcileBoundItems(player, "join");
         bindingService.resolveActiveSlot(player);
         if (armorSyncService.hasTrackedArmor(player)) {
             armorSyncService.requestSync(player);
@@ -228,19 +275,21 @@ public final class WardrobeArmorProtectionListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         if (armorSyncService.hasTrackedArmor(player)) {
-            armorSyncService.syncNow(player);
+            armorSyncService.syncNowFromPlayerEvent(player).exceptionally(ex -> {
+                auditLogger.error(
+                        "QUIT_SYNC_ERROR",
+                        player.getUniqueId(),
+                        player.getName(),
+                        ex,
+                        Map.of());
+                return null;
+            });
         }
         bindingService.clearActiveSlot(player.getUniqueId());
         lastLockMessageAt.remove(player.getUniqueId());
     }
 
     private boolean shouldLockEquippedArmorClick(Player player, InventoryClickEvent event) {
-        if (player.getGameMode() == GameMode.CREATIVE) {
-            return false;
-        }
-        if (event.getClickedInventory() != player.getInventory()) {
-            return false;
-        }
         if (event.getSlotType() != InventoryType.SlotType.ARMOR) {
             return false;
         }
@@ -248,38 +297,65 @@ public final class WardrobeArmorProtectionListener implements Listener {
     }
 
     private void normalizeDetachedClickItems(Player player, InventoryClickEvent event) {
-        boolean changed = false;
+        int duplicatesRemoved = 0;
+        boolean detachedUnbound = false;
         if (bindingService.isBound(event.getCurrentItem())) {
-            event.setCurrentItem(bindingService.unbindCopy(event.getCurrentItem()));
-            changed = true;
+            if (bindingService.hasCanonicalArmorCopy(player, event.getCurrentItem())) {
+                event.setCurrentItem(null);
+                duplicatesRemoved++;
+            } else {
+                trackDetachedSource(player, event.getCurrentItem());
+                event.setCurrentItem(bindingService.unbindCopy(event.getCurrentItem()));
+                detachedUnbound = true;
+            }
         }
         if (bindingService.isBound(event.getCursor())) {
-            event.getView().setCursor(bindingService.unbindCopy(event.getCursor()));
-            changed = true;
+            if (bindingService.hasCanonicalArmorCopy(player, event.getCursor())) {
+                event.getView().setCursor(null);
+                duplicatesRemoved++;
+            } else {
+                trackDetachedSource(player, event.getCursor());
+                event.getView().setCursor(bindingService.unbindCopy(event.getCursor()));
+                detachedUnbound = true;
+            }
         }
         if (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() >= 0) {
             ItemStack hotbar = player.getInventory().getItem(event.getHotbarButton());
             if (bindingService.isBound(hotbar)) {
-                player.getInventory().setItem(event.getHotbarButton(), bindingService.unbindCopy(hotbar));
-                changed = true;
+                if (bindingService.hasCanonicalArmorCopy(player, hotbar)) {
+                    player.getInventory().setItem(event.getHotbarButton(), null);
+                    duplicatesRemoved++;
+                } else {
+                    trackDetachedSource(player, hotbar);
+                    player.getInventory().setItem(event.getHotbarButton(), bindingService.unbindCopy(hotbar));
+                    detachedUnbound = true;
+                }
             }
         }
         if (event.getClick() == ClickType.SWAP_OFFHAND) {
             ItemStack offHand = player.getInventory().getItemInOffHand();
             if (bindingService.isBound(offHand)) {
-                player.getInventory().setItemInOffHand(bindingService.unbindCopy(offHand));
-                changed = true;
+                if (bindingService.hasCanonicalArmorCopy(player, offHand)) {
+                    player.getInventory().setItemInOffHand(null);
+                    duplicatesRemoved++;
+                } else {
+                    trackDetachedSource(player, offHand);
+                    player.getInventory().setItemInOffHand(bindingService.unbindCopy(offHand));
+                    detachedUnbound = true;
+                }
             }
         }
-        if (changed) {
+        if (duplicatesRemoved > 0) {
+            event.setCancelled(true);
+            auditDuplicateRemoval(player, "inventory-click", duplicatesRemoved);
+            resyncInventory(player);
+        }
+        if (detachedUnbound) {
             requestArmorSync(player);
         }
     }
 
     private boolean touchesLockedArmorSlot(Player player, InventoryDragEvent event) {
-        if (player.getGameMode() == GameMode.CREATIVE) {
-            return false;
-        }
         for (int rawSlot : event.getRawSlots()) {
             if (event.getView().getSlotType(rawSlot) != InventoryType.SlotType.ARMOR) {
                 continue;
@@ -289,6 +365,83 @@ public final class WardrobeArmorProtectionListener implements Listener {
             }
         }
         return false;
+    }
+
+    private boolean touchesBoundClickItem(Player player, InventoryClickEvent event) {
+        if (bindingService.isBound(event.getCurrentItem()) || bindingService.isBound(event.getCursor())) {
+            return true;
+        }
+        if (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() >= 0
+                && bindingService.isBound(player.getInventory().getItem(event.getHotbarButton()))) {
+            return true;
+        }
+        return event.getClick() == ClickType.SWAP_OFFHAND
+                && bindingService.isBound(player.getInventory().getItemInOffHand());
+    }
+
+    private void rejectBoundCreativeAction(Player player, Cancellable event) {
+        event.setCancelled(true);
+        sendRateLimited(player, "error.bound-armor-locked");
+        scheduleReconciliation(player, "creative-action");
+    }
+
+    private void resyncInventory(Player player) {
+        try {
+            schedulerAdapter.runPlayer(player, player::updateInventory);
+        } catch (IllegalStateException ignored) {
+            // The player disconnected before the authoritative state could be resent.
+        }
+    }
+
+    private void scheduleReconciliation(Player player, String source) {
+        try {
+            schedulerAdapter.runPlayer(player, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                reconcileBoundItems(player, source);
+                player.updateInventory();
+            });
+        } catch (IllegalStateException ignored) {
+            // The player disconnected before the authoritative state could be reconciled.
+        }
+    }
+
+    private void reconcileBoundItems(Player player, String source) {
+        WardrobeArmorBindingService.SanitizationResult result = bindingService.sanitizeBoundItems(player);
+        if (!result.changed()) {
+            return;
+        }
+        auditLogger.record(
+                "BOUND_ARMOR_RECONCILED",
+                player.getUniqueId(),
+                player.getName(),
+                Map.of(
+                        "source", source,
+                        "foreignRemoved", result.foreignRemoved(),
+                        "duplicatesRemoved", result.duplicatesRemoved(),
+                        "detachedUnbound", result.detachedUnbound()));
+        if (result.detachedUnbound() > 0) {
+            requestArmorSync(player);
+        }
+    }
+
+    private void auditDuplicateRemoval(Player player, String source, int count) {
+        auditLogger.record(
+                "BOUND_ARMOR_DUPLICATE_REMOVED",
+                player.getUniqueId(),
+                player.getName(),
+                Map.of("source", source, "removedItems", count));
+    }
+
+    private void trackDetachedSource(Player player, ItemStack itemStack) {
+        if (!bindingService.isBoundTo(itemStack, player.getUniqueId())) {
+            return;
+        }
+        int slot = bindingService.getBoundSlot(itemStack);
+        if (slot > 0) {
+            bindingService.setActiveSlot(player.getUniqueId(), slot);
+        }
     }
 
     private void requestArmorSync(Player player) {

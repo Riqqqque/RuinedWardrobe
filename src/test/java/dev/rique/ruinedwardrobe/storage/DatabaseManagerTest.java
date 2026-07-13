@@ -22,6 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class DatabaseManagerTest {
 
     @Test
+    void mariaDbDriverLoadsWithoutOptionalWindowsNativeAuthenticationLibraries() {
+        assertDoesNotThrow(() -> Class.forName("org.mariadb.jdbc.Driver"));
+    }
+
+    @Test
     void runWriteReturnsFailedFutureWhenQueueIsFull(@TempDir Path tempDir) throws Exception {
         DatabaseManager manager = createManager(tempDir, 1, 1);
         CountDownLatch started = new CountDownLatch(1);
@@ -91,6 +96,15 @@ class DatabaseManagerTest {
         assertEquals(2, second.join());
         assertTrue(secondExecuted.get());
         assertTrue(elapsedMs >= 150L);
+    }
+
+    @Test
+    void sqlitePathCannotEscapePluginDataFolder(@TempDir Path tempDir) {
+        DatabaseManager.DatabaseException exception = assertThrows(
+                DatabaseManager.DatabaseException.class,
+                () -> DatabaseManager.resolveSqliteDatabaseFile(tempDir.toFile(), "../outside.db"));
+
+        assertTrue(exception.getMessage().contains("must stay inside"));
     }
 
     private DatabaseManager createManager(Path tempDir, int queueCapacity, int workerThreads) {

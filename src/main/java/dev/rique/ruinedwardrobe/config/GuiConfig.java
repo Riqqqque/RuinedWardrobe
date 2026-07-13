@@ -76,7 +76,8 @@ public final class GuiConfig {
         Builder builder = new Builder();
 
         builder.mainTitleKey = config.getString("titles.main", "gui.main-title");
-        builder.rows = Math.max(1, Math.min(6, config.getInt("layout.rows", 6)));
+        // The wardrobe needs four armor rows, one action row, and one navigation row.
+        builder.rows = 6;
         int maxIndexExclusive = builder.rows * 9;
 
         // Slot display indices (which columns are wardrobe slots)
@@ -101,6 +102,13 @@ public final class GuiConfig {
             builder.leggingsRow = 2;
             builder.bootsRow = 3;
         }
+        if (List.of(builder.helmetRow, builder.chestplateRow, builder.leggingsRow, builder.bootsRow)
+                .stream().distinct().count() != 4L) {
+            builder.helmetRow = 0;
+            builder.chestplateRow = 1;
+            builder.leggingsRow = 2;
+            builder.bootsRow = 3;
+        }
 
         // Equip buttons row
         ConfigurationSection equipButtons = config.getConfigurationSection("layout.equip-buttons");
@@ -114,6 +122,13 @@ public final class GuiConfig {
                     sanitizeSlots(equipSlots, maxIndexExclusive),
                     List.of(36, 37, 38, 39, 40, 41, 42, 43, 44));
         } else {
+            builder.equipButtonsRow = 4;
+            builder.equipButtonSlots = List.of(36, 37, 38, 39, 40, 41, 42, 43, 44);
+        }
+        if (builder.equipButtonsRow == builder.helmetRow
+                || builder.equipButtonsRow == builder.chestplateRow
+                || builder.equipButtonsRow == builder.leggingsRow
+                || builder.equipButtonsRow == builder.bootsRow) {
             builder.equipButtonsRow = 4;
             builder.equipButtonSlots = List.of(36, 37, 38, 39, 40, 41, 42, 43, 44);
         }

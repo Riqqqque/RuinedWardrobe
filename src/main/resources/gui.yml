@@ -15,7 +15,7 @@ titles:
 
 layout:
   # Inventory row count for the main wardrobe screen.
-  # Vanilla chest GUIs support 1..6 rows. The default design expects 6.
+  # RuinedWardrobe uses six rows: four armor rows, actions, and navigation.
   rows: 6
 
   # Column indexes used as wardrobe slot columns.

@@ -104,6 +104,28 @@ class PluginConfigTest {
     }
 
     @Test
+    void clampsExtremeValuesBeforeTheyReachSchedulersOrPools() {
+        YamlConfiguration configuration = new YamlConfiguration();
+        configuration.set("wardrobe.default-slots", Integer.MAX_VALUE);
+        configuration.set("wardrobe.max-slots-cap", Integer.MAX_VALUE);
+        configuration.set("wardrobe.equip-cooldown-seconds", Long.MAX_VALUE);
+        configuration.set("storage.mysql.port", Integer.MAX_VALUE);
+        configuration.set("storage.pool.max-size", Integer.MAX_VALUE);
+        configuration.set("performance.sync.poll-seconds", Long.MAX_VALUE);
+        configuration.set("performance.database.worker-threads", Integer.MAX_VALUE);
+
+        PluginConfig pluginConfig = PluginConfig.from(configuration);
+
+        assertEquals(90, pluginConfig.defaultSlots());
+        assertEquals(90, pluginConfig.maxSlotsCap());
+        assertEquals(86_400_000L, pluginConfig.equipCooldownMillis());
+        assertEquals(65_535, pluginConfig.storageSettings().mysqlPort());
+        assertEquals(256, pluginConfig.storageSettings().maxPoolSize());
+        assertEquals(3_600L, pluginConfig.syncSettings().pollSeconds());
+        assertEquals(256, pluginConfig.dbExecutionSettings().workerThreads());
+    }
+
+    @Test
     void parsesDeathSettings() {
         YamlConfiguration configuration = new YamlConfiguration();
         configuration.set("death.keep-wardrobe-on-death", true);

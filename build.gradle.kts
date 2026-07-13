@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.rique"
-version = "1.0.10"
+version = "1.0.15"
 val pluginVersion = version.toString()
 val hangarMaxUploadBytes = 10_000_000L
 val shadedJarFile = layout.buildDirectory.file("libs/${rootProject.name}-$pluginVersion.jar")
@@ -35,7 +35,10 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
     implementation("com.zaxxer:HikariCP:5.1.0")
     implementation("org.xerial:sqlite-jdbc:3.46.1.3")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1") {
+        // RuinedWardrobe uses TCP host/port connections, not Windows GSSAPI, pipes, or Unix sockets.
+        exclude(group = "com.github.waffle", module = "waffle-jna")
+    }
     implementation("org.bstats:bstats-bukkit:3.2.1")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
