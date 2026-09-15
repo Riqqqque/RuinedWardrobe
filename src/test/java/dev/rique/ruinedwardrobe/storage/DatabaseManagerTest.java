@@ -7,11 +7,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.SQLTransientException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,7 +109,49 @@ class DatabaseManagerTest {
         assertTrue(exception.getMessage().contains("must stay inside"));
     }
 
+    @Test
+    void deterministicWriteFailureIsNotRetried(@TempDir Path tempDir) {
+        DatabaseManager manager = createManager(tempDir, 4, 1, 3);
+        AtomicInteger attempts = new AtomicInteger();
+
+        try {
+            CompletableFuture<Void> failed = manager.runWrite(connection -> {
+                attempts.incrementAndGet();
+                throw new IllegalArgumentException("invalid payload");
+            });
+
+            assertThrows(CompletionException.class, failed::join);
+            assertEquals(1, attempts.get());
+        } finally {
+            manager.shutdown();
+        }
+    }
+
+    @Test
+    void transientWriteFailureUsesConfiguredRetries(@TempDir Path tempDir) {
+        DatabaseManager manager = createManager(tempDir, 4, 1, 2);
+        AtomicInteger attempts = new AtomicInteger();
+
+        try {
+            int result = manager.runWrite(connection -> {
+                if (attempts.getAndIncrement() < 2) {
+                    throw new RuntimeException(new SQLTransientException("temporary"));
+                }
+                return 7;
+            }).join();
+
+            assertEquals(7, result);
+            assertEquals(3, attempts.get());
+        } finally {
+            manager.shutdown();
+        }
+    }
+
     private DatabaseManager createManager(Path tempDir, int queueCapacity, int workerThreads) {
+        return createManager(tempDir, queueCapacity, workerThreads, 0);
+    }
+
+    private DatabaseManager createManager(Path tempDir, int queueCapacity, int workerThreads, int writeRetries) {
         PluginConfig pluginConfig = new PluginConfig(
                 3,
                 54,
@@ -138,7 +182,7 @@ class DatabaseManagerTest {
                 new PluginConfig.IntegrationSettings(false, false, false),
                 new PluginConfig.GuiBehaviorSettings(true, true, false, false, 0),
                 new PluginConfig.AntiDupeSettings(false),
-                new PluginConfig.DbExecutionSettings(queueCapacity, 0, 10L, workerThreads),
+                new PluginConfig.DbExecutionSettings(queueCapacity, writeRetries, 10L, workerThreads),
                 new PluginConfig.HealthSettings(true, 120L),
                 new PluginConfig.AuditSettings(false, "logs", 4096, false, true, true)
         );

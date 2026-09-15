@@ -27,6 +27,7 @@ import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerItemMendEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -264,6 +265,7 @@ public final class WardrobeArmorProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        armorSyncService.finishDeath(player.getUniqueId());
         reconcileBoundItems(player, "join");
         bindingService.resolveActiveSlot(player);
         if (armorSyncService.hasTrackedArmor(player)) {
@@ -285,8 +287,14 @@ public final class WardrobeArmorProtectionListener implements Listener {
                 return null;
             });
         }
+        armorSyncService.finishDeath(player.getUniqueId());
         bindingService.clearActiveSlot(player.getUniqueId());
         lastLockMessageAt.remove(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRespawn(PlayerRespawnEvent event) {
+        armorSyncService.finishDeath(event.getPlayer().getUniqueId());
     }
 
     private boolean shouldLockEquippedArmorClick(Player player, InventoryClickEvent event) {
@@ -387,7 +395,8 @@ public final class WardrobeArmorProtectionListener implements Listener {
 
     private void resyncInventory(Player player) {
         try {
-            schedulerAdapter.runPlayer(player, player::updateInventory);
+            schedulerAdapter.runPlayer(player, player::updateInventory, () -> {
+            });
         } catch (IllegalStateException ignored) {
             // The player disconnected before the authoritative state could be resent.
         }
@@ -401,6 +410,7 @@ public final class WardrobeArmorProtectionListener implements Listener {
                 }
                 reconcileBoundItems(player, source);
                 player.updateInventory();
+            }, () -> {
             });
         } catch (IllegalStateException ignored) {
             // The player disconnected before the authoritative state could be reconciled.

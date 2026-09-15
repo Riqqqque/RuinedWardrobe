@@ -240,6 +240,39 @@ class WardrobeGuiControllerTest {
         verify(fixture.player, never()).setItemOnCursor(any());
     }
 
+    @Test
+    void disconnectedPickupRemainsSerializedUntilDatabaseRestoreCompletes() {
+        Fixture fixture = new Fixture();
+        ItemStack savedChestplate = item();
+        CompletableFuture<Boolean> pendingRestore = new CompletableFuture<>();
+        WardrobeServiceImpl.ArmorPieceMutationResult takeResult =
+                new WardrobeServiceImpl.ArmorPieceMutationResult(
+                        new WardrobeResult(ResultCode.SUCCESS, "success.armor-taken", Map.of()),
+                        savedChestplate);
+
+        when(fixture.player.isOnline()).thenReturn(false);
+        when(fixture.wardrobeService.takeArmorPiece(fixture.playerId, 3, "chestplate"))
+                .thenReturn(CompletableFuture.completedFuture(takeResult));
+        when(fixture.wardrobeService.restoreArmorPieceIfEmpty(
+                fixture.playerId,
+                3,
+                "chestplate",
+                savedChestplate))
+                .thenReturn(pendingRestore);
+
+        WardrobeMenuHolder holder = fixture.holder(9, 3);
+        InventoryClickEvent event = fixture.clickEvent(9, ClickType.LEFT);
+        fixture.controller.handleMainClick(fixture.player, holder, event);
+        fixture.controller.handleMainClick(fixture.player, holder, event);
+
+        verify(fixture.wardrobeService, times(1)).takeArmorPiece(
+                fixture.playerId,
+                3,
+                "chestplate");
+
+        pendingRestore.complete(true);
+    }
+
     private static WardrobeProfile profileWithSet(UUID playerId, int slot, WardrobeSet set) {
         return new WardrobeProfile(playerId, 0, -1, 1L, Map.of(slot, set));
     }
@@ -271,7 +304,10 @@ class WardrobeGuiControllerTest {
             when(player.getUniqueId()).thenReturn(playerId);
             when(player.isOnline()).thenReturn(true);
             when(player.getInventory()).thenReturn(inventory);
-            when(schedulerAdapter.runPlayer(eq(player), any(Runnable.class))).thenAnswer(invocation -> {
+            when(schedulerAdapter.runPlayer(
+                    eq(player),
+                    any(Runnable.class),
+                    any(Runnable.class))).thenAnswer(invocation -> {
                 invocation.<Runnable>getArgument(1).run();
                 return mock(SchedulerAdapter.TaskHandle.class);
             });

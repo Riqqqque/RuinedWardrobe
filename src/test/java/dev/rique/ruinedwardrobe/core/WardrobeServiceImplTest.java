@@ -756,7 +756,10 @@ class WardrobeServiceImplTest {
     private SchedulerAdapter immediateScheduler() {
         SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
         SchedulerAdapter.TaskHandle handle = mock(SchedulerAdapter.TaskHandle.class);
-        when(schedulerAdapter.runPlayer(any(Player.class), any(Runnable.class))).thenAnswer(invocation -> {
+        when(schedulerAdapter.runPlayer(
+                any(Player.class),
+                any(Runnable.class),
+                any(Runnable.class))).thenAnswer(invocation -> {
             ((Runnable) invocation.getArgument(1)).run();
             return handle;
         });

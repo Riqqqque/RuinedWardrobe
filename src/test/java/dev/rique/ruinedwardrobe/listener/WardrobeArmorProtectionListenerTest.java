@@ -236,7 +236,10 @@ class WardrobeArmorProtectionListenerTest {
             when(bindingService.sanitizeBoundItems(player)).thenReturn(
                     new WardrobeArmorBindingService.SanitizationResult(0, 0, 0));
             when(armorSyncService.requestSync(player)).thenReturn(CompletableFuture.completedFuture(null));
-            when(schedulerAdapter.runPlayer(eq(player), any(Runnable.class))).thenAnswer(invocation -> {
+            when(schedulerAdapter.runPlayer(
+                    eq(player),
+                    any(Runnable.class),
+                    any(Runnable.class))).thenAnswer(invocation -> {
                 invocation.<Runnable>getArgument(1).run();
                 return mock(SchedulerAdapter.TaskHandle.class);
             });

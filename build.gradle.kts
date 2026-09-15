@@ -1,10 +1,13 @@
+import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
+
 plugins {
     java
-    id("com.gradleup.shadow") version "9.3.2"
+    id("com.gradleup.shadow") version "9.6.1"
 }
 
 group = "dev.rique"
-version = "1.0.15"
+version = "1.0.16"
 val pluginVersion = version.toString()
 val hangarMaxUploadBytes = 10_000_000L
 val shadedJarFile = layout.buildDirectory.file("libs/${rootProject.name}-$pluginVersion.jar")
@@ -27,25 +30,30 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:${paperApiVersion.get()}")
-    compileOnly("me.clip:placeholderapi:2.11.6")
+    compileOnly("me.clip:placeholderapi:2.12.3")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
 
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
-    implementation("com.zaxxer:HikariCP:5.1.0")
-    implementation("org.xerial:sqlite-jdbc:3.46.1.3")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.4.1") {
+    implementation("com.github.ben-manes.caffeine:caffeine:3.2.4") {
+        exclude(group = "com.google.errorprone", module = "error_prone_annotations")
+        exclude(group = "org.jspecify", module = "jspecify")
+    }
+    implementation("com.zaxxer:HikariCP:7.1.0") {
+        exclude(group = "org.slf4j", module = "slf4j-api")
+    }
+    implementation("org.xerial:sqlite-jdbc:3.53.2.1")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.9") {
         // RuinedWardrobe uses TCP host/port connections, not Windows GSSAPI, pipes, or Unix sockets.
         exclude(group = "com.github.waffle", module = "waffle-jna")
     }
     implementation("org.bstats:bstats-bukkit:3.2.1")
 
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation(platform("org.junit:junit-bom:6.1.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core:5.23.0")
     testImplementation("io.papermc.paper:paper-api:${paperApiVersion.get()}")
-    testImplementation("me.clip:placeholderapi:2.11.6")
+    testImplementation("me.clip:placeholderapi:2.12.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -55,7 +63,14 @@ tasks.test {
 }
 
 tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
     options.release.set(javaReleaseVersion)
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-parameters"))
+}
+
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
 }
 
 tasks.processResources {
@@ -74,6 +89,8 @@ tasks.jar {
 
 tasks.shadowJar {
     archiveClassifier.set("")
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    mergeServiceFiles()
     exclude("org/sqlite/native/FreeBSD/**")
     exclude("org/sqlite/native/Linux/x86/**")
     exclude("org/sqlite/native/Linux/arm/**")
@@ -86,6 +103,8 @@ tasks.shadowJar {
     exclude("org/sqlite/native/Windows/aarch64/**")
     exclude("org/sqlite/native/Windows/x86/**")
     exclude("org/sqlite/native/Windows/armv7/**")
+    relocate("com.github.benmanes.caffeine", "dev.rique.ruinedwardrobe.libs.caffeine")
+    relocate("com.zaxxer.hikari", "dev.rique.ruinedwardrobe.libs.hikari")
     relocate("org.bstats", "dev.rique.ruinedwardrobe.libs.bstats")
 }
 

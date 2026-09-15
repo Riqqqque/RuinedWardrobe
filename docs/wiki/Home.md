@@ -1,7 +1,7 @@
 # RuinedWardrobe
 
-[![Release](https://img.shields.io/github/v/release/Riqqqque/RuinedWardrobe?label=release&cacheSeconds=60)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
-[![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar)
+[![Release](https://img.shields.io/modrinth/v/ruinedwardrobe?label=release&logo=modrinth&cacheSeconds=60)](https://modrinth.com/plugin/ruinedwardrobe/version/1.0.16)
+[![Download](https://img.shields.io/badge/download-jar-2ea44f)](https://cdn.modrinth.com/data/Dor4AjiB/versions/rIevJZvU/RuinedWardrobe.jar)
 [![Paper/Folia](https://img.shields.io/badge/Paper%2FFolia-1.21--26.2-2f3136)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-21%2B-b07219)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-free%20use%2C%20no%20resale-blue)](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
@@ -12,6 +12,12 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 
 > [!TIP]
 > New install? Start with [Quick Start](Quick-Start.md), then set up [Permissions And Commands](Permissions-And-Commands.md), then review [Configuration](Configuration.md).
+
+## Current Release
+
+`1.0.16` is the current production build. It makes vanilla-style death loss transactional before armor is released, prevents retired Folia player tasks from leaving work stuck, reloads without blocking a player scheduler, uses fully durable SQLite commits, and preserves configured values during config template upgrades.
+
+See [Release Notes](Release-Notes.md) for the full operator-facing summary.
 
 ## At A Glance
 
@@ -61,7 +67,7 @@ This wiki is written for server owners, admins, and support staff. It favors ope
 | `/wardrobe doctor` | Checks storage, cache, DB queue, sync, optional plugin hooks, and a real DB probe from in game. |
 | Audit logs | Trace save, equip, rename, delete, death, sanitizer, sync, and error events. |
 | Bound armor protection | Blocks common move, drop, swap, dispense, and container abuse paths. |
-| Config version guards | Old configs are backed up and regenerated when bundled templates change. |
+| Config version guards | Older configs are backed up and upgraded while configured values are preserved. |
 | Snapshot migration | Dry-runs, backups, target overwrite protection, and digest verification. |
 | Staff admin commands | Open player wardrobes and adjust bonus slots without changing rank nodes. |
 
@@ -76,6 +82,16 @@ flowchart LR
     E --> F["Bind and equip set"]
     F --> G["Save selected state"]
     G --> H["Write audit entry"]
+```
+
+## Death Loss Flow
+
+```mermaid
+flowchart LR
+    A["Player dies"] --> B["Withhold bound wardrobe drops"]
+    B --> C["Consume affected saved pieces in one DB transaction"]
+    C -->|Commit succeeds| D["Release canonical unbound drops"]
+    C -->|Commit fails| E["Keep saved copy recoverable"]
 ```
 
 ## Default Files
@@ -113,7 +129,7 @@ plugins/RuinedWardrobe/
 ## Important Links
 
 - [Repository](https://github.com/Riqqqque/RuinedWardrobe)
-- [Latest Release](https://github.com/Riqqqque/RuinedWardrobe/releases/latest)
+- [Latest Release](https://modrinth.com/plugin/ruinedwardrobe/version/1.0.16)
 - [License](https://github.com/Riqqqque/RuinedWardrobe/blob/main/LICENSE)
 
 ## Page Map

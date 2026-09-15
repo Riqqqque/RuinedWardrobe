@@ -2,6 +2,7 @@ package dev.rique.ruinedwardrobe.scheduler;
 
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -29,10 +30,27 @@ public final class FoliaSchedulerAdapter implements SchedulerAdapter {
 
     @Override
     public TaskHandle runPlayer(Player player, Runnable runnable) {
-        ScheduledTask task = player.getScheduler().run(plugin, ignored -> runnable.run(), null);
+        return runPlayer(player, runnable, () -> {
+        });
+    }
+
+    @Override
+    public TaskHandle runPlayer(Player player, Runnable runnable, Runnable retired) {
+        ScheduledTask task = player.getScheduler().run(
+                plugin,
+                ignored -> runnable.run(),
+                retired);
         if (task == null) {
-            throw new IllegalStateException("Player is no longer schedulable");
+            retired.run();
+            return () -> {
+            };
         }
+        return task::cancel;
+    }
+
+    @Override
+    public TaskHandle runLocation(Location location, Runnable runnable) {
+        ScheduledTask task = Bukkit.getRegionScheduler().run(plugin, location, ignored -> runnable.run());
         return task::cancel;
     }
 

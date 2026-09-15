@@ -5,6 +5,8 @@ Storage is the area where boring is best. Pick the backend that matches your ser
 > [!CAUTION]
 > Never run a real migration as your first test. Use `--dry-run`, read the result, then migrate.
 
+Run the real migration during a quiet maintenance window. The plugin flushes online armor before taking its source snapshot, but player changes made after that snapshot belong to the still-active source storage and are not part of the copied point-in-time image.
+
 ## Storage Decision
 
 | Use case | Backend | Notes |
@@ -23,6 +25,8 @@ plugins/RuinedWardrobe/data/wardrobe.db
 ```
 
 Use SQLite when one server owns the data. Include the full `plugins/RuinedWardrobe` folder in backups so config, GUI, language, logs, and storage stay together.
+
+RuinedWardrobe uses SQLite WAL mode with full synchronous commits. This favors item durability across abrupt host or server failure over slightly faster but less durable writes.
 
 ## MySQL And MariaDB
 

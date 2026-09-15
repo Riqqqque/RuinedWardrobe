@@ -34,6 +34,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public final class WardrobeCommand implements CommandExecutor, TabCompleter {
@@ -72,7 +74,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
     private final VersionSyncService versionSyncService;
     private final PluginConfig pluginConfig;
     private final SchedulerAdapter schedulerAdapter;
-    private final Runnable reloadAction;
+    private final Supplier<CompletableFuture<Void>> reloadAction;
 
     public WardrobeCommand(
             JavaPlugin plugin,
@@ -87,7 +89,7 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             VersionSyncService versionSyncService,
             PluginConfig pluginConfig,
             SchedulerAdapter schedulerAdapter,
-            Runnable reloadAction) {
+            Supplier<CompletableFuture<Void>> reloadAction) {
         this.plugin = plugin;
         this.languageRegistry = languageRegistry;
         this.messageService = messageService;
@@ -230,12 +232,24 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
             messageService.send(sender, "error.no-permission");
             return;
         }
-        reloadAction.run();
-        Bukkit.getPluginManager().callEvent(new WardrobeDataReloadedEvent());
-        messageService.send(sender, "success.reloaded");
-        if (!languageRegistry.getFallbackCountByKey().isEmpty()) {
-            plugin.getLogger().info("Lang fallback keys in use: " + languageRegistry.getFallbackCountByKey().size());
+        CompletableFuture<Void> reloadFuture;
+        try {
+            reloadFuture = reloadAction.get();
+        } catch (Throwable throwable) {
+            messageService.send(sender, "error.storage", Map.of("reason", sanitizeThrowableMessage(throwable)));
+            return;
         }
+        reloadFuture.thenRun(() -> runForSender(sender, () -> {
+            Bukkit.getPluginManager().callEvent(new WardrobeDataReloadedEvent());
+            messageService.send(sender, "success.reloaded");
+            if (!languageRegistry.getFallbackCountByKey().isEmpty()) {
+                plugin.getLogger().info("Lang fallback keys in use: " + languageRegistry.getFallbackCountByKey().size());
+            }
+        })).exceptionally(ex -> {
+            runForSender(sender, () ->
+                    messageService.send(sender, "error.storage", Map.of("reason", sanitizeThrowableMessage(ex))));
+            return null;
+        });
     }
 
     private void handleDoctor(CommandSender sender) {
@@ -508,7 +522,8 @@ public final class WardrobeCommand implements CommandExecutor, TabCompleter {
                 return;
             }
             try {
-                schedulerAdapter.runPlayer(player, runnable);
+                schedulerAdapter.runPlayer(player, runnable, () -> {
+                });
             } catch (IllegalStateException ignored) {
                 // Player disconnected or retired before the reply could be scheduled.
             }

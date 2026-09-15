@@ -5,6 +5,7 @@
 - [Overview](Home.md)
 - [Quick Start](Quick-Start.md)
 - [FAQ](FAQ.md)
+- [Release Notes](Release-Notes.md)
 
 ## Setup
 

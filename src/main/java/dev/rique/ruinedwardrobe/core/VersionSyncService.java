@@ -102,7 +102,7 @@ public final class VersionSyncService {
                 if (refreshTasks.isEmpty()) {
                     return CompletableFuture.completedFuture(null);
                 }
-                return CompletableFuture.allOf(refreshTasks.toArray(new CompletableFuture[0]));
+                return CompletableFuture.allOf(refreshTasks.toArray(CompletableFuture<?>[]::new));
             }).exceptionally(ex -> {
                 plugin.getLogger().warning("Version sync batch failed: " + ex.getMessage());
                 return null;
@@ -110,7 +110,7 @@ public final class VersionSyncService {
             futures.add(future);
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new))
                 .whenComplete((ignored, throwable) -> finishPoll(start));
     }
 

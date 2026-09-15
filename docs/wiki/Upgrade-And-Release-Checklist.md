@@ -3,7 +3,7 @@
 Use this page when updating RuinedWardrobe, changing storage, or publishing a new jar to a live server.
 
 > [!IMPORTANT]
-> Back up before the first startup with a new jar. Config regeneration and schema migration are safer when rollback is simple.
+> Back up before the first startup with a new jar. Config upgrades and schema migration are safer when rollback is simple.
 
 ## Before Updating
 
@@ -17,7 +17,7 @@ Use this page when updating RuinedWardrobe, changing storage, or publishing a ne
 ## First Startup
 
 1. Start the server.
-2. Watch console for config backup or regeneration messages.
+2. Watch console for config backup or upgrade messages.
 3. Run `/wardrobe doctor`.
 4. Open `/wardrobe` as a normal player.
 5. Save a set.
@@ -29,14 +29,14 @@ Use this page when updating RuinedWardrobe, changing storage, or publishing a ne
 
 ## Config Version Changes
 
-RuinedWardrobe backs up old config templates when `config-version` changes, then writes the bundled template.
+RuinedWardrobe backs up older config templates, writes the current template, and preserves configured values. A config from a newer plugin version stops startup rather than being downgraded.
 
 After a version bump:
 
-1. Open the regenerated config.
-2. Reapply only the changes you still need.
-3. Do not paste an old config over the new file.
-4. Compare old backups carefully.
+1. Confirm storage type, host, database, and credentials still match the intended backend.
+2. Review newly added settings and comments.
+3. Do not paste an old config over the upgraded file.
+4. Keep the automatic backup until the update is validated.
 5. Restart or reload after edits.
 
 ## Storage Migration Release
@@ -80,13 +80,13 @@ For local source builds on Windows:
 Check the current Paper `26.2` API line:
 
 ```powershell
-.\gradlew.bat "-PpaperApiVersion=26.2.build.34-alpha" "-PjavaToolchainVersion=25" "-PjavaReleaseVersion=25" clean testClasses
+.\gradlew.bat "-PpaperApiVersion=26.2.build.84-stable" "-PjavaToolchainVersion=25" "-PjavaReleaseVersion=25" clean build
 ```
 
 Expected jar:
 
 ```text
-build/libs/RuinedWardrobe-1.0.15.jar
+build/libs/RuinedWardrobe-1.0.16.jar
 ```
 
 Check these before sending a jar to anyone:
@@ -98,6 +98,9 @@ Check these before sending a jar to anyone:
 - The server starts without config errors.
 - `/wardrobe doctor` works.
 - A normal player can save, equip, unequip, and switch sets.
+- Vanilla-style death removes saved pieces before releasing their physical drops.
+- A storage failure during death does not release a second copy.
+- Reload completes on both Paper and Folia without timing out.
 
 ## Related Pages
 

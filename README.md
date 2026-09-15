@@ -25,7 +25,7 @@ It is free to use on any server, including monetized servers. The source and jar
 - Vanilla-compatible death behavior by default, with a config option to preserve wardrobe sets on death.
 - Wardrobe audit log for tracing equips, edits, deaths, sanitizer removals, sync changes, storage errors, and item deserialization failures.
 - Config, GUI, language, and permission templates designed for server owners instead of just developers.
-- Automatic config backup/regeneration on template version changes.
+- Automatic config backup and value-preserving template upgrades.
 - Legacy schema import with verified backup before old tables are removed.
 - Snapshot-based storage migration with digest verification.
 - PlaceholderAPI expansion and optional Vault/combat integration hooks.
@@ -54,7 +54,7 @@ Jar output when building locally:
 ```
 
 ```text
-build/libs/RuinedWardrobe-1.0.15.jar
+build/libs/RuinedWardrobe-1.0.16.jar
 ```
 
 ## Commands
@@ -180,7 +180,7 @@ Build and test:
 Compatibility check against the current Paper `26.2` API line:
 
 ```bash
-./gradlew -PpaperApiVersion=26.2.build.34-alpha -PjavaToolchainVersion=25 -PjavaReleaseVersion=25 clean testClasses
+./gradlew -PpaperApiVersion=26.2.build.84-stable -PjavaToolchainVersion=25 -PjavaReleaseVersion=25 clean build
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies so normal installs do not need extra jars.

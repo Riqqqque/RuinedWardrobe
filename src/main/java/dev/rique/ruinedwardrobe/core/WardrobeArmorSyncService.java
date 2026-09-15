@@ -6,6 +6,7 @@ import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.storage.WardrobeRepository;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -14,6 +15,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -34,6 +36,7 @@ public final class WardrobeArmorSyncService {
     private final PluginConfig.DeathSettings deathSettings;
     private final WardrobeAuditLogger auditLogger;
     private final Map<UUID, PendingPlayerSync> pendingSync = new ConcurrentHashMap<>();
+    private final Set<UUID> deathInProgress = ConcurrentHashMap.newKeySet();
     private SchedulerAdapter.TaskHandle periodicTask;
     private int scanCursor;
 
@@ -76,6 +79,9 @@ public final class WardrobeArmorSyncService {
             return CompletableFuture.completedFuture(null);
         }
         UUID playerId = player.getUniqueId();
+        if (deathInProgress.contains(playerId)) {
+            return CompletableFuture.completedFuture(null);
+        }
         PendingPlayerSync pending = new PendingPlayerSync();
         while (true) {
             PendingPlayerSync existing = pendingSync.putIfAbsent(playerId, pending);
@@ -120,6 +126,9 @@ public final class WardrobeArmorSyncService {
                     pendingSync.remove(playerId, pending);
                     pending.completeExceptionally(throwable);
                 }
+            }, () -> {
+                pendingSync.remove(playerId, pending);
+                pending.completeExceptionally(new IllegalStateException("Player retired before armor sync"));
             });
         } catch (Throwable throwable) {
             pendingSync.remove(playerId, pending);
@@ -131,6 +140,9 @@ public final class WardrobeArmorSyncService {
         if (player == null) {
             return CompletableFuture.completedFuture(null);
         }
+        if (deathInProgress.contains(player.getUniqueId())) {
+            return CompletableFuture.completedFuture(null);
+        }
         CompletableFuture<PlayerArmorSnapshot> captureFuture = new CompletableFuture<>();
         try {
             schedulerAdapter.runPlayer(player, () -> {
@@ -139,7 +151,7 @@ public final class WardrobeArmorSyncService {
                 } catch (Throwable throwable) {
                     captureFuture.completeExceptionally(throwable);
                 }
-            });
+            }, () -> captureFuture.complete(null));
         } catch (Throwable throwable) {
             return CompletableFuture.failedFuture(throwable);
         }
@@ -177,54 +189,48 @@ public final class WardrobeArmorSyncService {
         if (keepInventory) {
             return CompletableFuture.completedFuture(null);
         }
+        UUID playerId = player.getUniqueId();
+        if (!deathInProgress.add(playerId)) {
+            removeBoundDrops(drops);
+            return CompletableFuture.completedFuture(null);
+        }
         if (deathSettings.keepWardrobeOnDeath()) {
             return preserveWardrobeOnDeath(player, drops);
         }
 
-        unbindDrops(drops);
-
-        UUID playerId = player.getUniqueId();
+        DeathLossCapture capture = captureDeathLoss(player, drops);
         bindingService.clearActiveSlot(playerId);
 
-        Map<Integer, Set<String>> lostPiecesBySlot = collectLostArmor(player);
-        int affectedSlots = lostPiecesBySlot.size();
-        int lostPieces = countLostPieces(lostPiecesBySlot);
+        int affectedSlots = capture.piecesBySlot().size();
+        int lostPieces = countLostPieces(capture.piecesBySlot());
+        if (lostPieces == 0) {
+            auditLogger.record(
+                    "DEATH_VANILLA_LOSS",
+                    playerId,
+                    player.getName(),
+                    Map.of("affectedSlots", 0, "lostPieces", 0, "releasedDrops", 0));
+            return CompletableFuture.completedFuture(null);
+        }
+
         PendingPlayerSync pending = pendingSync.get(playerId);
         CompletableFuture<Void> previousSync = pending == null
                 ? CompletableFuture.completedFuture(null)
                 : pending.completion().exceptionally(ignored -> null);
 
         return previousSync.thenCompose(ignored -> wardrobeService.runExclusive(playerId, () ->
-                wardrobeService.getProfile(playerId).thenCompose(profile -> {
-                    List<CompletableFuture<Void>> writes = new ArrayList<>();
-                    for (Map.Entry<Integer, Set<String>> entry : lostPiecesBySlot.entrySet()) {
-                        WardrobeSet existing = profile.getSet(entry.getKey());
-                        if (existing == null) {
-                            continue;
-                        }
-                        WardrobeSet updated = removeLostPieces(existing, entry.getValue());
-                        CompletableFuture<Void> writeFuture = updated.hasAnyArmorPiece()
-                                ? repository.saveSet(profile.playerId(), updated)
-                                : repository.deleteSet(profile.playerId(), updated.slot());
-                        writes.add(writeFuture);
-                    }
-
-                    CompletableFuture<Void> writesFuture = writes.isEmpty()
-                            ? CompletableFuture.completedFuture(null)
-                            : CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
-
-                    return writesFuture
-                            .thenCompose(next -> profile.selectedSlot() < 1
-                                    ? CompletableFuture.completedFuture(null)
-                                    : repository.setSelectedSlot(profile.playerId(), -1))
-                            .thenCompose(next -> refreshProfile(profile.playerId(), true))
-                            .thenRun(() -> auditLogger.record(
+                repository.consumeArmorPiecesOnDeath(playerId, capture.piecesBySlot())
+                        .thenCompose(next -> refreshProfile(playerId, true))
+                        .thenRun(() -> {
+                            releaseDeathDrops(capture);
+                            auditLogger.record(
                                     "DEATH_VANILLA_LOSS",
                                     playerId,
                                     player.getName(),
-                                    Map.of("affectedSlots", affectedSlots, "lostPieces", lostPieces)));
-                }
-                )));
+                                    Map.of(
+                                            "affectedSlots", affectedSlots,
+                                            "lostPieces", lostPieces,
+                                            "releasedDrops", capture.dropsToRelease().size()));
+                        })));
     }
 
     public CompletableFuture<Void> flushOnlinePlayers() {
@@ -235,7 +241,31 @@ public final class WardrobeArmorSyncService {
             }
             syncTasks.add(syncNow(onlinePlayer));
         }
-        return CompletableFuture.allOf(syncTasks.toArray(new CompletableFuture[0]));
+        return CompletableFuture.allOf(syncTasks.toArray(CompletableFuture<?>[]::new));
+    }
+
+    public CompletableFuture<Void> flushOnlinePlayersFromCurrentThread() {
+        List<CompletableFuture<Void>> syncTasks = new ArrayList<>();
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            if (!hasTrackedArmor(onlinePlayer) || deathInProgress.contains(onlinePlayer.getUniqueId())) {
+                continue;
+            }
+            try {
+                PlayerArmorSnapshot snapshot = captureSnapshot(onlinePlayer, false);
+                syncTasks.add(wardrobeService.runExclusive(
+                        onlinePlayer.getUniqueId(),
+                        () -> persistSnapshotUnlocked(snapshot, false)));
+            } catch (Throwable throwable) {
+                syncTasks.add(CompletableFuture.failedFuture(throwable));
+            }
+        }
+        return CompletableFuture.allOf(syncTasks.toArray(CompletableFuture<?>[]::new));
+    }
+
+    public void finishDeath(UUID playerId) {
+        if (playerId != null) {
+            deathInProgress.remove(playerId);
+        }
     }
 
     private void syncOnlinePlayers() {
@@ -438,20 +468,6 @@ public final class WardrobeArmorSyncService {
                 && Objects.equals(left.boots(), right.boots());
     }
 
-    private void unbindDrops(List<ItemStack> drops) {
-        if (drops == null || drops.isEmpty()) {
-            return;
-        }
-        ListIterator<ItemStack> iterator = drops.listIterator();
-        while (iterator.hasNext()) {
-            ItemStack drop = iterator.next();
-            if (!bindingService.isBound(drop)) {
-                continue;
-            }
-            iterator.set(bindingService.unbindCopy(drop));
-        }
-    }
-
     private boolean removeBoundDrops(List<ItemStack> drops) {
         if (drops == null || drops.isEmpty()) {
             return false;
@@ -468,20 +484,54 @@ public final class WardrobeArmorSyncService {
         return removed;
     }
 
-    private Map<Integer, Set<String>> collectLostArmor(Player player) {
+    private DeathLossCapture captureDeathLoss(Player player, List<ItemStack> drops) {
         Map<Integer, Set<String>> lostPiecesBySlot = new HashMap<>();
+        Map<DeathPieceKey, ItemStack> canonicalDrops = new LinkedHashMap<>();
         UUID playerId = player.getUniqueId();
         PlayerInventory inventory = player.getInventory();
 
-        collectLostPiece(lostPiecesBySlot, playerId, inventory.getHelmet(), "helmet");
-        collectLostPiece(lostPiecesBySlot, playerId, inventory.getChestplate(), "chestplate");
-        collectLostPiece(lostPiecesBySlot, playerId, inventory.getLeggings(), "leggings");
-        collectLostPiece(lostPiecesBySlot, playerId, inventory.getBoots(), "boots");
+        collectLostPiece(lostPiecesBySlot, canonicalDrops, playerId, inventory.getHelmet(), "helmet");
+        collectLostPiece(lostPiecesBySlot, canonicalDrops, playerId, inventory.getChestplate(), "chestplate");
+        collectLostPiece(lostPiecesBySlot, canonicalDrops, playerId, inventory.getLeggings(), "leggings");
+        collectLostPiece(lostPiecesBySlot, canonicalDrops, playerId, inventory.getBoots(), "boots");
 
-        return lostPiecesBySlot;
+        Set<DeathPieceKey> requestedDrops = new HashSet<>();
+        if (drops != null) {
+            ListIterator<ItemStack> iterator = drops.listIterator();
+            while (iterator.hasNext()) {
+                ItemStack drop = iterator.next();
+                if (!bindingService.isBound(drop)) {
+                    continue;
+                }
+                if (bindingService.isBoundTo(drop, playerId)) {
+                    int slot = bindingService.getBoundSlot(drop);
+                    String piece = bindingService.getBoundPiece(drop);
+                    if (slot > 0 && isStoredArmorPiece(piece)) {
+                        requestedDrops.add(new DeathPieceKey(slot, piece));
+                    }
+                }
+                iterator.remove();
+            }
+        }
+
+        List<ItemStack> dropsToRelease = canonicalDrops.entrySet().stream()
+                .filter(entry -> requestedDrops.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .map(ItemStack::clone)
+                .toList();
+        return new DeathLossCapture(
+                Map.copyOf(lostPiecesBySlot),
+                dropsToRelease,
+                player.getLocation().clone());
     }
 
-    private void collectLostPiece(Map<Integer, Set<String>> lostPiecesBySlot, UUID playerId, ItemStack itemStack, String fallbackPiece) {
+    private void collectLostPiece(
+            Map<Integer, Set<String>> lostPiecesBySlot,
+            Map<DeathPieceKey, ItemStack> canonicalDrops,
+            UUID playerId,
+            ItemStack itemStack,
+            String expectedPiece
+    ) {
         if (!bindingService.isBoundTo(itemStack, playerId)) {
             return;
         }
@@ -493,27 +543,41 @@ public final class WardrobeArmorSyncService {
 
         String piece = bindingService.getBoundPiece(itemStack);
         if (piece == null || piece.isBlank()) {
-            piece = fallbackPiece;
+            piece = expectedPiece;
+        }
+        if (!expectedPiece.equals(piece)) {
+            return;
         }
 
         lostPiecesBySlot.computeIfAbsent(slot, ignored -> new HashSet<>()).add(piece);
+        canonicalDrops.put(new DeathPieceKey(slot, piece), bindingService.unbindCopy(itemStack));
     }
 
-    private WardrobeSet removeLostPieces(WardrobeSet existing, Set<String> lostPieces) {
-        ItemStack helmet = lostPieces.contains("helmet") ? null : existing.helmet();
-        ItemStack chestplate = lostPieces.contains("chestplate") ? null : existing.chestplate();
-        ItemStack leggings = lostPieces.contains("leggings") ? null : existing.leggings();
-        ItemStack boots = lostPieces.contains("boots") ? null : existing.boots();
+    private boolean isStoredArmorPiece(String piece) {
+        return "helmet".equals(piece)
+                || "chestplate".equals(piece)
+                || "leggings".equals(piece)
+                || "boots".equals(piece);
+    }
 
-        return new WardrobeSet(
-                existing.slot(),
-                existing.name(),
-                existing.favorite(),
-                helmet,
-                chestplate,
-                leggings,
-                boots
-        );
+    private void releaseDeathDrops(DeathLossCapture capture) {
+        if (capture.dropsToRelease().isEmpty()) {
+            return;
+        }
+        try {
+            schedulerAdapter.runLocation(capture.location(), () -> {
+                for (ItemStack itemStack : capture.dropsToRelease()) {
+                    capture.location().getWorld().dropItemNaturally(capture.location(), itemStack.clone());
+                }
+            });
+        } catch (Throwable throwable) {
+            auditLogger.error(
+                    "DEATH_DROP_RELEASE_ERROR",
+                    null,
+                    null,
+                    throwable,
+                    Map.of("drops", capture.dropsToRelease().size()));
+        }
     }
 
     private int countLostPieces(Map<Integer, Set<String>> lostPiecesBySlot) {
@@ -558,6 +622,16 @@ public final class WardrobeArmorSyncService {
             ItemStack chestplate,
             ItemStack leggings,
             ItemStack boots
+    ) {
+    }
+
+    private record DeathPieceKey(int slot, String piece) {
+    }
+
+    private record DeathLossCapture(
+            Map<Integer, Set<String>> piecesBySlot,
+            List<ItemStack> dropsToRelease,
+            Location location
     ) {
     }
 

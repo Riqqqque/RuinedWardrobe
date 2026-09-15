@@ -5,6 +5,7 @@ import dev.rique.ruinedwardrobe.api.model.WardrobeSet;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -17,6 +18,8 @@ public interface WardrobeRepository {
     CompletableFuture<Void> saveSet(UUID playerId, WardrobeSet wardrobeSet);
 
     CompletableFuture<Void> deleteSet(UUID playerId, int slot);
+
+    CompletableFuture<Void> consumeArmorPiecesOnDeath(UUID playerId, Map<Integer, Set<String>> piecesBySlot);
 
     CompletableFuture<Void> renameSet(UUID playerId, int slot, String name);
 

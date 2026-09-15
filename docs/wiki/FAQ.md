@@ -28,6 +28,8 @@ The player's effective slot limit is lower than that slot number. Check `wardrob
 
 If keepInventory is off and `death.keep-wardrobe-on-death` is false, RuinedWardrobe follows vanilla-style loss. The armor drops and is removed from the saved wardrobe slot.
 
+The saved pieces are consumed in one storage transaction before their unbound item copies are released. If that write fails, the items are not released and the saved wardrobe copy remains recoverable instead of creating two copies.
+
 ## Can wardrobe armor be moved or traded while worn?
 
 No. Equipped wardrobe armor is bound while worn and protected from normal movement, dropping, swapping, dispensing, and related abuse paths.

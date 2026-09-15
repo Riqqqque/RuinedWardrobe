@@ -1,6 +1,7 @@
 package dev.rique.ruinedwardrobe.config;
 
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -52,8 +53,13 @@ public final class ConfigManager {
 
         YamlConfiguration configuration = YamlConfiguration.loadConfiguration(file);
         int currentVersion = configuration.getInt("config-version", -1);
+        if (currentVersion > expectedVersion) {
+            throw new IllegalStateException(resourceName + " has config-version " + currentVersion
+                    + ", but this plugin only supports up to version " + expectedVersion
+                    + ". Restore a compatible plugin version or config backup.");
+        }
         if (currentVersion != expectedVersion) {
-            backupAndReplace(resourceName, file, currentVersion, expectedVersion);
+            backupAndUpgrade(resourceName, file, configuration, currentVersion, expectedVersion);
             configuration = YamlConfiguration.loadConfiguration(file);
         }
 
@@ -76,7 +82,13 @@ public final class ConfigManager {
         plugin.saveResource(resourceName, false);
     }
 
-    private void backupAndReplace(String resourceName, File targetFile, int currentVersion, int expectedVersion) {
+    private void backupAndUpgrade(
+            String resourceName,
+            File targetFile,
+            YamlConfiguration previousConfiguration,
+            int currentVersion,
+            int expectedVersion
+    ) {
         try {
             File backupDirectory = new File(plugin.getDataFolder(), "backups");
             if (!backupDirectory.exists() && !backupDirectory.mkdirs()) {
@@ -88,11 +100,27 @@ public final class ConfigManager {
             Files.copy(targetFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             Files.delete(targetFile.toPath());
             plugin.saveResource(resourceName, false);
-            plugin.getLogger().warning(resourceName + " had config-version " + currentVersion
-                    + " and was replaced with version " + expectedVersion
+            YamlConfiguration upgradedConfiguration = YamlConfiguration.loadConfiguration(targetFile);
+            preserveUserValues(previousConfiguration, upgradedConfiguration);
+            upgradedConfiguration.set("config-version", expectedVersion);
+            upgradedConfiguration.save(targetFile);
+            plugin.getLogger().warning(resourceName + " was upgraded from config-version " + currentVersion
+                    + " to " + expectedVersion + " while preserving configured values"
                     + ". The previous file was backed up to " + backupFile.getAbsolutePath());
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to replace outdated " + resourceName + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    static void preserveUserValues(
+            YamlConfiguration previousConfiguration,
+            YamlConfiguration upgradedConfiguration
+    ) {
+        for (var entry : previousConfiguration.getValues(true).entrySet()) {
+            if ("config-version".equals(entry.getKey()) || entry.getValue() instanceof ConfigurationSection) {
+                continue;
+            }
+            upgradedConfiguration.set(entry.getKey(), entry.getValue());
         }
     }
 }

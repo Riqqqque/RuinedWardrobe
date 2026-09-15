@@ -6,6 +6,8 @@ import dev.rique.ruinedwardrobe.config.PluginConfig;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.storage.WardrobeRepository;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -17,14 +19,18 @@ import org.mockito.MockedStatic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -106,7 +112,7 @@ class WardrobeArmorSyncServiceTest {
     }
 
     @Test
-    void dropsUnboundArmorAndConsumesSavedSetWhenKeepInventoryIsDisabled() {
+    void releasesUnboundArmorOnlyAfterAtomicDeathConsumptionSucceeds() {
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getLogger()).thenReturn(mock(PluginLogger.class));
         SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
@@ -120,15 +126,18 @@ class WardrobeArmorSyncServiceTest {
         PlayerInventory inventory = mock(PlayerInventory.class);
         ItemStack boundHelmet = mock(ItemStack.class);
         ItemStack storedHelmet = mockArmorPiece();
-        ItemStack unboundHelmet = mock(ItemStack.class);
+        ItemStack unboundHelmet = mockArmorPiece();
         List<ItemStack> drops = new ArrayList<>(List.of(boundHelmet));
+        Location deathLocation = mock(Location.class);
+        World world = mock(World.class);
 
-        WardrobeSet storedSet = new WardrobeSet(4, "Slot 4", false, storedHelmet, null, null, null);
-        WardrobeProfile profile = new WardrobeProfile(playerId, 0, 4, 1L, Map.of(4, storedSet));
         WardrobeProfile refreshed = new WardrobeProfile(playerId, 0, -1, 2L, Map.of());
 
         when(player.getUniqueId()).thenReturn(playerId);
         when(player.getInventory()).thenReturn(inventory);
+        when(player.getLocation()).thenReturn(deathLocation);
+        when(deathLocation.clone()).thenReturn(deathLocation);
+        when(deathLocation.getWorld()).thenReturn(world);
         when(inventory.getHelmet()).thenReturn(boundHelmet);
 
         when(bindingService.isBound(boundHelmet)).thenReturn(true);
@@ -137,19 +146,90 @@ class WardrobeArmorSyncServiceTest {
         when(bindingService.getBoundSlot(boundHelmet)).thenReturn(4);
         when(bindingService.getBoundPiece(boundHelmet)).thenReturn("helmet");
 
-        when(wardrobeService.getProfile(playerId)).thenReturn(CompletableFuture.completedFuture(profile));
-        when(repository.deleteSet(playerId, 4)).thenReturn(CompletableFuture.completedFuture(null));
-        when(repository.setSelectedSlot(playerId, -1)).thenReturn(CompletableFuture.completedFuture(null));
+        when(repository.consumeArmorPiecesOnDeath(playerId, Map.of(4, Set.of("helmet"))))
+                .thenReturn(CompletableFuture.completedFuture(null));
         when(repository.loadProfile(playerId)).thenReturn(CompletableFuture.completedFuture(refreshed));
 
         service.handleDeath(player, false, drops).join();
 
-        assertSame(unboundHelmet, drops.get(0));
+        assertTrue(drops.isEmpty());
         verify(bindingService).clearActiveSlot(playerId);
-        verify(repository).deleteSet(playerId, 4);
-        verify(repository).setSelectedSlot(playerId, -1);
+        verify(repository).consumeArmorPiecesOnDeath(playerId, Map.of(4, Set.of("helmet")));
+        verify(world).dropItemNaturally(eq(deathLocation), any(ItemStack.class));
         verify(wardrobeService).primeProfile(refreshed);
-        verify(repository, never()).saveSet(playerId, storedSet);
+    }
+
+    @Test
+    void storageFailureNeverReleasesWithheldDeathArmor() {
+        JavaPlugin plugin = mock(JavaPlugin.class);
+        when(plugin.getLogger()).thenReturn(mock(PluginLogger.class));
+        SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeServiceImpl wardrobeService = mock(WardrobeServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        WardrobeArmorSyncService service = createService(
+                plugin,
+                schedulerAdapter,
+                repository,
+                wardrobeService,
+                bindingService);
+
+        UUID playerId = UUID.randomUUID();
+        Player player = mock(Player.class);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        ItemStack boundHelmet = mock(ItemStack.class);
+        ItemStack unboundHelmet = mockArmorPiece();
+        Location deathLocation = mock(Location.class);
+        World world = mock(World.class);
+        List<ItemStack> drops = new ArrayList<>(List.of(boundHelmet));
+
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player.getInventory()).thenReturn(inventory);
+        when(player.getLocation()).thenReturn(deathLocation);
+        when(deathLocation.clone()).thenReturn(deathLocation);
+        when(deathLocation.getWorld()).thenReturn(world);
+        when(inventory.getHelmet()).thenReturn(boundHelmet);
+        when(bindingService.isBound(boundHelmet)).thenReturn(true);
+        when(bindingService.isBoundTo(boundHelmet, playerId)).thenReturn(true);
+        when(bindingService.getBoundSlot(boundHelmet)).thenReturn(4);
+        when(bindingService.getBoundPiece(boundHelmet)).thenReturn("helmet");
+        when(bindingService.unbindCopy(boundHelmet)).thenReturn(unboundHelmet);
+        when(repository.consumeArmorPiecesOnDeath(playerId, Map.of(4, Set.of("helmet"))))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("storage unavailable")));
+
+        assertThrows(CompletionException.class, () -> service.handleDeath(player, false, drops).join());
+
+        assertTrue(drops.isEmpty());
+        verify(world, never()).dropItemNaturally(any(Location.class), any(ItemStack.class));
+    }
+
+    @Test
+    void retiredPlayerSchedulerCompletesQueuedSyncExceptionally() {
+        JavaPlugin plugin = mock(JavaPlugin.class);
+        SchedulerAdapter schedulerAdapter = mock(SchedulerAdapter.class);
+        WardrobeRepository repository = mock(WardrobeRepository.class);
+        WardrobeServiceImpl wardrobeService = mock(WardrobeServiceImpl.class);
+        WardrobeArmorBindingService bindingService = mock(WardrobeArmorBindingService.class);
+        WardrobeArmorSyncService service = createService(
+                plugin,
+                schedulerAdapter,
+                repository,
+                wardrobeService,
+                bindingService);
+        Player player = mock(Player.class);
+
+        when(player.isOnline()).thenReturn(true);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(schedulerAdapter.runPlayer(
+                any(Player.class),
+                any(Runnable.class),
+                any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(2).run();
+            return mock(SchedulerAdapter.TaskHandle.class);
+        });
+
+        assertThrows(CompletionException.class, () -> service.requestSync(player).join());
+        verifyNoInteractions(repository);
     }
 
     @Test
@@ -279,7 +359,14 @@ class WardrobeArmorSyncServiceTest {
     ) {
         when(bindingService.sanitizeBoundItems(any(Player.class))).thenReturn(
                 new WardrobeArmorBindingService.SanitizationResult(0, 0, 0));
-        when(schedulerAdapter.runPlayer(any(Player.class), any(Runnable.class))).thenAnswer(invocation -> {
+        when(schedulerAdapter.runPlayer(
+                any(Player.class),
+                any(Runnable.class),
+                any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return mock(SchedulerAdapter.TaskHandle.class);
+        });
+        when(schedulerAdapter.runLocation(any(Location.class), any(Runnable.class))).thenAnswer(invocation -> {
             invocation.<Runnable>getArgument(1).run();
             return mock(SchedulerAdapter.TaskHandle.class);
         });

@@ -37,6 +37,9 @@ Search by player name, UUID, action, slot, or timestamp.
 | `ARMOR_TAKE` | Armor was taken from a wardrobe slot. |
 | `DEATH_VANILLA_LOSS` | Vanilla-style death loss happened. |
 | `DEATH_PRESERVE` | Protected death behavior kept the saved set. |
+| `DEATH_DROP_RELEASE_ERROR` | Storage committed, but the region could not release a withheld death drop. |
+| `ARMOR_RETURN_CONFLICT` | A disconnected GUI return found its original wardrobe position occupied. |
+| `ARMOR_RETURN_ERROR` | A disconnected GUI return could not be restored to storage. |
 | `FOREIGN_BOUND_ARMOR_REMOVED` | Armor bound to another owner was removed. |
 | `ITEM_DESERIALIZE_ERROR` | Stored item data could not be read. |
 | `ARMOR_SYNC_ERROR` | Background armor sync failed. |
@@ -66,6 +69,7 @@ Search by player name, UUID, action, slot, or timestamp.
 | `EQUIP_DENIED` with empty/nothing saved message | The player clicked a slot with no saved armor. |
 | `DEATH_VANILLA_LOSS` | keepInventory was off and `death.keep-wardrobe-on-death` was false. |
 | `DEATH_PRESERVE` | The plugin removed wardrobe armor from drops and kept the saved set. |
+| `DEATH_DROP_RELEASE_ERROR` | Treat this as an item-loss report. Check the same timestamp and restore from staff records if appropriate. |
 | `ITEM_DESERIALIZE_ERROR` | Stored item data could not be read after item/server changes or DB corruption. |
 | `FOREIGN_BOUND_ARMOR_REMOVED` | Bound armor owned by another UUID was found and removed. |
 | Queue depth high in `/wardrobe doctor` | DB writes are backing up. Check DB health and pool/worker sizing. |

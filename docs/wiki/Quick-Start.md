@@ -18,7 +18,7 @@ Use this page when you want RuinedWardrobe installed, tested, and ready for a fi
 
 ## Install Checklist
 
-1. Download `RuinedWardrobe.jar` from the [latest release](https://github.com/Riqqqque/RuinedWardrobe/releases/latest/download/RuinedWardrobe.jar).
+1. Download `RuinedWardrobe.jar` from the [latest release](https://cdn.modrinth.com/data/Dor4AjiB/versions/rIevJZvU/RuinedWardrobe.jar).
 2. Put `RuinedWardrobe.jar` in the server `plugins` folder.
 3. Start the server once so RuinedWardrobe creates its files.
 4. Stop the server.
@@ -85,7 +85,7 @@ On Linux:
 Jar output:
 
 ```text
-build/libs/RuinedWardrobe-1.0.15.jar
+build/libs/RuinedWardrobe-1.0.16.jar
 ```
 
 The shaded jar includes SQLite, MariaDB, HikariCP, Caffeine, and bStats dependencies.

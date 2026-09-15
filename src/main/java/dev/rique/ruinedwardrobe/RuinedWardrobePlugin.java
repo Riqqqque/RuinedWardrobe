@@ -25,6 +25,7 @@ import dev.rique.ruinedwardrobe.lang.LanguageRegistry;
 import dev.rique.ruinedwardrobe.lang.MessageService;
 import dev.rique.ruinedwardrobe.listener.PlayerSessionListener;
 import dev.rique.ruinedwardrobe.listener.WardrobeArmorProtectionListener;
+import dev.rique.ruinedwardrobe.scheduler.PaperSchedulerAdapter;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerAdapter;
 import dev.rique.ruinedwardrobe.scheduler.SchedulerFactory;
 import dev.rique.ruinedwardrobe.storage.DatabaseManager;
@@ -41,7 +42,9 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 public final class RuinedWardrobePlugin extends JavaPlugin {
@@ -69,6 +72,7 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
     private RuinedWardrobeExpansion placeholderExpansion;
     private VaultHook vaultHook;
     private Metrics metrics;
+    private final AtomicBoolean reloading = new AtomicBoolean();
 
     @Override
     public void onEnable() {
@@ -176,11 +180,42 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
         ));
     }
 
-    public void reloadPluginRuntime() {
-        shutdown();
-        HandlerList.unregisterAll(this);
-        Bukkit.getServicesManager().unregisterAll(this);
-        bootstrap();
+    public CompletableFuture<Void> reloadPluginRuntime() {
+        if (!reloading.compareAndSet(false, true)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("A RuinedWardrobe reload is already running"));
+        }
+
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        armorSyncService.flushOnlinePlayers()
+                .orTimeout(pluginConfig.armorSyncSettings().shutdownFlushTimeoutSeconds(), TimeUnit.SECONDS)
+                .whenComplete((ignored, flushError) -> {
+                    if (flushError != null) {
+                        reloading.set(false);
+                        result.completeExceptionally(flushError);
+                        return;
+                    }
+                    try {
+                        schedulerAdapter.runGlobal(() -> {
+                            try {
+                                shutdownWithoutFlush();
+                                HandlerList.unregisterAll(this);
+                                Bukkit.getServicesManager().unregisterAll(this);
+                                bootstrap();
+                                result.complete(null);
+                            } catch (Throwable throwable) {
+                                getLogger().log(Level.SEVERE, "Failed to reload RuinedWardrobe", throwable);
+                                result.completeExceptionally(throwable);
+                                Bukkit.getPluginManager().disablePlugin(this);
+                            } finally {
+                                reloading.set(false);
+                            }
+                        });
+                    } catch (Throwable throwable) {
+                        reloading.set(false);
+                        result.completeExceptionally(throwable);
+                    }
+                });
+        return result;
     }
 
     private void initializeIntegrations(PluginConfig pluginConfig) {
@@ -286,21 +321,36 @@ public final class RuinedWardrobePlugin extends JavaPlugin {
         shutdownRuntimeOnly();
         if (armorSyncService != null) {
             try {
-                armorSyncService.flushOnlinePlayers()
+                CompletableFuture<Void> flush = schedulerAdapter instanceof PaperSchedulerAdapter
+                        ? armorSyncService.flushOnlinePlayersFromCurrentThread()
+                        : armorSyncService.flushOnlinePlayers();
+                flush
                         .orTimeout(pluginConfig.armorSyncSettings().shutdownFlushTimeoutSeconds(), TimeUnit.SECONDS)
                         .join();
             } catch (Exception ex) {
                 getLogger().warning("Failed to flush wardrobe state during shutdown: " + ex.getMessage());
             }
         }
+        shutdownStorageAndSchedulers();
+    }
+
+    private void shutdownWithoutFlush() {
+        shutdownRuntimeOnly();
+        shutdownStorageAndSchedulers();
+    }
+
+    private void shutdownStorageAndSchedulers() {
         if (databaseManager != null) {
             databaseManager.shutdown();
+            databaseManager = null;
         }
         if (schedulerAdapter != null) {
             schedulerAdapter.shutdown();
+            schedulerAdapter = null;
         }
         if (auditLogger != null) {
             auditLogger.stop();
+            auditLogger = null;
         }
     }
 }

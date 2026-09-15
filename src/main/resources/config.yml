@@ -11,8 +11,9 @@
 # All text is configured in lang/*.yml.
 
 # Config schema version used by RuinedWardrobe for compatibility checks.
-# If this value does not match the plugin's expected version, the plugin will back up this file,
-# replace it with the latest bundled template, and continue loading with the new version.
+# If this value is older than the plugin's expected version, the plugin backs up this file,
+# upgrades to the latest bundled template, and carries forward configured values.
+# A newer unsupported version stops startup instead of destructively downgrading the file.
 config-version: 6
 
 language:

@@ -4,11 +4,14 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import dev.rique.ruinedwardrobe.config.DatabaseType;
 import dev.rique.ruinedwardrobe.config.PluginConfig;
+import org.sqlite.SQLiteConfig;
 
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.SQLRecoverableException;
 import java.sql.SQLException;
+import java.sql.SQLTransientException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -50,8 +53,12 @@ public final class DatabaseManager {
             poolSize = Math.min(4, storage.maxPoolSize());
             hikariConfig.setMaximumPoolSize(poolSize);
             hikariConfig.setMinimumIdle(1);
-            // Hikari init SQL must be a single statement; run WAL mode separately after pool init.
-            hikariConfig.setConnectionInitSql("PRAGMA foreign_keys=ON");
+            SQLiteConfig sqliteConfig = new SQLiteConfig();
+            sqliteConfig.enforceForeignKeys(true);
+            sqliteConfig.setJournalMode(SQLiteConfig.JournalMode.WAL);
+            sqliteConfig.setSynchronous(SQLiteConfig.SynchronousMode.FULL);
+            sqliteConfig.setBusyTimeout((int) Math.min(Integer.MAX_VALUE, storage.connectionTimeoutMs()));
+            hikariConfig.setDataSourceProperties(sqliteConfig.toProperties());
         } else {
             String jdbcUrl = "jdbc:mariadb://" + storage.mysqlHost() + ":" + storage.mysqlPort() + "/" + storage.mysqlDatabase() + "?" + storage.mysqlParams();
             hikariConfig.setJdbcUrl(jdbcUrl);
@@ -126,7 +133,7 @@ public final class DatabaseManager {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA journal_mode=WAL");
-            statement.execute("PRAGMA synchronous=NORMAL");
+            statement.execute("PRAGMA synchronous=FULL");
         } catch (SQLException ex) {
             throw new DatabaseException("Failed to configure SQLite PRAGMA settings", ex);
         }
@@ -158,7 +165,7 @@ public final class DatabaseManager {
                         return result;
                     } catch (Exception ex) {
                         recordLatency(startNs);
-                        if (attempt >= retries) {
+                        if (attempt >= retries || !isRetryable(ex)) {
                             throw new DatabaseException("Database operation failed after retries", ex);
                         }
                         attempt++;
@@ -186,6 +193,27 @@ public final class DatabaseManager {
             Thread.currentThread().interrupt();
             return false;
         }
+    }
+
+    private boolean isRetryable(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLTransientException || current instanceof SQLRecoverableException) {
+                return true;
+            }
+            if (current instanceof SQLException sqlException) {
+                String sqlState = sqlException.getSQLState();
+                if (sqlState != null && (sqlState.startsWith("08") || sqlState.startsWith("40"))) {
+                    return true;
+                }
+                int sqliteCode = sqlException.getErrorCode() & 0xFF;
+                if (sqliteCode == 5 || sqliteCode == 6) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     public int queueDepth() {
@@ -219,6 +247,8 @@ public final class DatabaseManager {
     }
 
     public static final class DatabaseException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
         public DatabaseException(String message) {
             super(message);
         }

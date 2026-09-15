@@ -10,11 +10,12 @@ RuinedWardrobe supports storage migration between `SQLITE` and `MYSQL`, and it a
 2. Run dry run first:
    - `/wardrobe migrate mysql --dry-run`
 3. Verify reported row counts (`players`, `sets`, `meta`) and the dry-run digest.
-4. Run actual migration:
+4. Put the server into a quiet maintenance window so players do not change wardrobes after the source snapshot.
+5. Run actual migration:
    - `/wardrobe migrate mysql`
-5. If the target already contains wardrobe data, confirm it can be replaced and rerun with `--force`.
-6. Keep the backup file paths reported by the command until the target server has been fully validated.
-7. Restart plugin/server and confirm with `/wardrobe doctor`.
+6. If the target already contains wardrobe data, confirm it can be replaced and rerun with `--force`.
+7. Keep the backup file paths reported by the command until the target server has been fully validated.
+8. Restart plugin/server and confirm with `/wardrobe doctor`.
 
 ## Safety Guarantees
 - On startup, RuinedWardrobe can import the older local schema into the current schema and writes a backup first.

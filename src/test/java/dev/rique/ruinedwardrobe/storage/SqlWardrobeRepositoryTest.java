@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.ResultSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -63,6 +64,34 @@ class SqlWardrobeRepositoryTest {
             int selectedSlot = manager.runQuery(connection -> selectedSlot(connection, playerId)).join();
 
             assertEquals(-1, selectedSlot);
+        } finally {
+            manager.shutdown();
+        }
+    }
+
+    @Test
+    void deathConsumptionUpdatesAllPiecesAndSelectionInOneWrite(@TempDir Path tempDir) {
+        DatabaseManager manager = createManager(tempDir);
+        UUID playerId = UUID.randomUUID();
+
+        try {
+            SqlWardrobeRepository repository = createRepository(tempDir, manager);
+            repository.initializeSchema().join();
+            seedDeathSets(manager, playerId);
+
+            repository.consumeArmorPiecesOnDeath(
+                    playerId,
+                    Map.of(
+                            2, Set.of("helmet"),
+                            3, Set.of("boots")))
+                    .join();
+
+            assertEquals(-1, manager.runQuery(connection -> selectedSlot(connection, playerId)).join());
+            assertEquals(0, manager.runQuery(connection -> countSetRows(connection, playerId, 2)).join());
+            assertEquals("chest-payload",
+                    manager.runQuery(connection -> pieceData(connection, playerId, 3, "chest_data")).join());
+            assertEquals(null,
+                    manager.runQuery(connection -> pieceData(connection, playerId, 3, "boots_data")).join());
         } finally {
             manager.shutdown();
         }
@@ -273,6 +302,71 @@ class SqlWardrobeRepositoryTest {
             }
             return null;
         }).join();
+    }
+
+    private void seedDeathSets(DatabaseManager manager, UUID playerId) {
+        manager.runWrite(connection -> {
+            try (var insertPlayer = connection.prepareStatement("""
+                    INSERT INTO rw_players (player_uuid, bonus_slots, selected_slot, version, updated_at)
+                    VALUES (?, 0, 2, 1, 100)
+                    """);
+                 var insertSet = connection.prepareStatement("""
+                    INSERT INTO rw_sets (player_uuid, slot_index, slot_name, favorite, helmet_data, chest_data, legs_data, boots_data, created_at, updated_at, version)
+                    VALUES (?, ?, ?, 0, ?, ?, NULL, ?, 100, 100, 1)
+                    """)) {
+                insertPlayer.setString(1, playerId.toString());
+                insertPlayer.executeUpdate();
+
+                insertSet.setString(1, playerId.toString());
+                insertSet.setInt(2, 2);
+                insertSet.setString(3, "Slot 2");
+                insertSet.setString(4, "helmet-payload");
+                insertSet.setString(5, null);
+                insertSet.setString(6, null);
+                insertSet.executeUpdate();
+
+                insertSet.setString(1, playerId.toString());
+                insertSet.setInt(2, 3);
+                insertSet.setString(3, "Slot 3");
+                insertSet.setString(4, null);
+                insertSet.setString(5, "chest-payload");
+                insertSet.setString(6, "boots-payload");
+                insertSet.executeUpdate();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+            return null;
+        }).join();
+    }
+
+    private int countSetRows(java.sql.Connection connection, UUID playerId, int slot) {
+        try (var statement = connection.prepareStatement(
+                "SELECT COUNT(*) FROM rw_sets WHERE player_uuid=? AND slot_index=?")) {
+            statement.setString(1, playerId.toString());
+            statement.setInt(2, slot);
+            try (ResultSet rs = statement.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    private String pieceData(java.sql.Connection connection, UUID playerId, int slot, String column) {
+        if (!Set.of("helmet_data", "chest_data", "legs_data", "boots_data").contains(column)) {
+            throw new IllegalArgumentException("unsupported test column");
+        }
+        try (var statement = connection.prepareStatement(
+                "SELECT " + column + " FROM rw_sets WHERE player_uuid=? AND slot_index=?")) {
+            statement.setString(1, playerId.toString());
+            statement.setInt(2, slot);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     private DatabaseManager createManager(Path tempDir) {

@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -193,6 +194,65 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
                         statement.executeUpdate();
                     }
                     bumpVersion(connection, playerId, System.currentTimeMillis());
+                    return null;
+                });
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> consumeArmorPiecesOnDeath(
+            UUID playerId,
+            Map<Integer, Set<String>> piecesBySlot
+    ) {
+        Map<Integer, Set<String>> requestedPieces = normalizeDeathPieces(piecesBySlot);
+        if (requestedPieces.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return databaseManager.runWrite(connection -> {
+            try {
+                withTransaction(connection, () -> {
+                    ensurePlayerRowExists(connection, playerId);
+                    long now = System.currentTimeMillis();
+                    boolean changed = false;
+                    for (Map.Entry<Integer, Set<String>> entry : requestedPieces.entrySet()) {
+                        String assignments = entry.getValue().stream()
+                                .map(SqlWardrobeRepository::pieceColumn)
+                                .map(column -> column + "=NULL")
+                                .sorted()
+                                .collect(java.util.stream.Collectors.joining(", "));
+                        try (PreparedStatement statement = connection.prepareStatement(
+                                "UPDATE " + SETS_TABLE + " SET " + assignments
+                                        + ", updated_at=?, version=version+1 WHERE player_uuid=? AND slot_index=?")) {
+                            statement.setLong(1, now);
+                            statement.setString(2, playerId.toString());
+                            statement.setInt(3, entry.getKey());
+                            changed |= statement.executeUpdate() > 0;
+                        }
+                        try (PreparedStatement statement = connection.prepareStatement(
+                                "DELETE FROM " + SETS_TABLE
+                                        + " WHERE player_uuid=? AND slot_index=?"
+                                        + " AND helmet_data IS NULL AND chest_data IS NULL"
+                                        + " AND legs_data IS NULL AND boots_data IS NULL")) {
+                            statement.setString(1, playerId.toString());
+                            statement.setInt(2, entry.getKey());
+                            statement.executeUpdate();
+                        }
+                    }
+
+                    int selectedChanged;
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "UPDATE " + PLAYERS_TABLE + " SET selected_slot=-1"
+                                    + " WHERE player_uuid=? AND selected_slot<>-1")) {
+                        statement.setString(1, playerId.toString());
+                        selectedChanged = statement.executeUpdate();
+                    }
+                    if (changed || selectedChanged > 0) {
+                        bumpVersion(connection, playerId, now);
+                    }
                     return null;
                 });
             } catch (Exception ex) {
@@ -387,6 +447,42 @@ public final class SqlWardrobeRepository implements WardrobeRepository {
                 """)) {
             statement.execute();
         }
+    }
+
+    private static Map<Integer, Set<String>> normalizeDeathPieces(Map<Integer, Set<String>> piecesBySlot) {
+        if (piecesBySlot == null || piecesBySlot.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, Set<String>> normalized = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Set<String>> entry : piecesBySlot.entrySet()) {
+            if (entry.getKey() == null || entry.getKey() < 1 || entry.getValue() == null) {
+                continue;
+            }
+            Set<String> pieces = entry.getValue().stream()
+                    .filter(SqlWardrobeRepository::isStoredArmorPiece)
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            if (!pieces.isEmpty()) {
+                normalized.put(entry.getKey(), pieces);
+            }
+        }
+        return Map.copyOf(normalized);
+    }
+
+    private static boolean isStoredArmorPiece(String piece) {
+        return "helmet".equals(piece)
+                || "chestplate".equals(piece)
+                || "leggings".equals(piece)
+                || "boots".equals(piece);
+    }
+
+    private static String pieceColumn(String piece) {
+        return switch (piece) {
+            case "helmet" -> "helmet_data";
+            case "chestplate" -> "chest_data";
+            case "leggings" -> "legs_data";
+            case "boots" -> "boots_data";
+            default -> throw new IllegalArgumentException("Unsupported armor piece: " + piece);
+        };
     }
 
     private void createPlayersTable(Connection connection) throws SQLException {

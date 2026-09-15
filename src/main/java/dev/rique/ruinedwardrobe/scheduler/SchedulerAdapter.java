@@ -1,5 +1,6 @@
 package dev.rique.ruinedwardrobe.scheduler;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 public interface SchedulerAdapter {
@@ -9,6 +10,12 @@ public interface SchedulerAdapter {
     TaskHandle runGlobal(Runnable runnable);
 
     TaskHandle runPlayer(Player player, Runnable runnable);
+
+    default TaskHandle runPlayer(Player player, Runnable runnable, Runnable retired) {
+        return runPlayer(player, runnable);
+    }
+
+    TaskHandle runLocation(Location location, Runnable runnable);
 
     TaskHandle runTimerAsync(Runnable runnable, long delayTicks, long periodTicks);
 

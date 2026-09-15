@@ -223,27 +223,37 @@ public final class WardrobeGuiController {
 
             wardrobeService.placeArmorPieceIfEmpty(session.targetId(), wardrobeSlot, piece.key(), consumed)
                     .thenAccept(placeResult -> {
-                        endAction(actionId);
                         runForViewer(viewer, () -> {
-                            WardrobeResult result = placeResult.result();
-                            if (!result.isSuccess()) {
-                                restoreCursorItem(viewer, consumed);
+                            try {
+                                WardrobeResult result = placeResult.result();
+                                if (!result.isSuccess()) {
+                                    restoreCursorItem(viewer, consumed);
+                                }
+                                applyFeedback(viewer, result);
+                                openMain(viewer, session.targetId(), session.page());
+                            } finally {
+                                endAction(actionId);
                             }
-                            applyFeedback(viewer, result);
-                            openMain(viewer, session.targetId(), session.page());
                         }, () -> {
                             if (!placeResult.result().isSuccess()) {
-                                restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed);
+                                restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed)
+                                        .whenComplete((ignored, throwable) -> endAction(actionId));
+                            } else {
+                                endAction(actionId);
                             }
                         });
                     })
                     .exceptionally(ex -> {
-                        endAction(actionId);
                         runForViewer(viewer, () -> {
-                            restoreCursorItem(viewer, consumed);
-                            messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-                            openMain(viewer, session.targetId(), session.page());
-                        }, () -> restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed));
+                            try {
+                                restoreCursorItem(viewer, consumed);
+                                messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
+                                openMain(viewer, session.targetId(), session.page());
+                            } finally {
+                                endAction(actionId);
+                            }
+                        }, () -> restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, consumed)
+                                .whenComplete((ignored, throwable) -> endAction(actionId)));
                         return null;
                     });
         }, () -> endAction(actionId))).exceptionally(ex -> {
@@ -263,24 +273,33 @@ public final class WardrobeGuiController {
             return;
         }
         wardrobeService.takeArmorPiece(session.targetId(), wardrobeSlot, piece.key()).thenAccept(takeResult -> {
-            endAction(actionId);
             runForViewer(viewer, () -> {
-                WardrobeResult result = takeResult.result();
-                if (result.isSuccess()) {
-                    giveToCursorOrInventory(viewer, takeResult.previousItem());
+                try {
+                    WardrobeResult result = takeResult.result();
+                    if (result.isSuccess()) {
+                        giveToCursorOrInventory(viewer, takeResult.previousItem());
+                    }
+                    applyFeedback(viewer, result);
+                    openMain(viewer, session.targetId(), session.page());
+                } finally {
+                    endAction(actionId);
                 }
-                applyFeedback(viewer, result);
-                openMain(viewer, session.targetId(), session.page());
             }, () -> {
                 if (takeResult.result().isSuccess()) {
-                    restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, takeResult.previousItem());
+                    restoreUndeliveredArmor(session.targetId(), wardrobeSlot, piece, takeResult.previousItem())
+                            .whenComplete((ignored, throwable) -> endAction(actionId));
+                } else {
+                    endAction(actionId);
                 }
             });
         }).exceptionally(ex -> {
-            endAction(actionId);
             runForViewer(viewer, () -> {
-                messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-            });
+                try {
+                    messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
+                } finally {
+                    endAction(actionId);
+                }
+            }, () -> endAction(actionId));
             return null;
         });
     }
@@ -517,25 +536,36 @@ public final class WardrobeGuiController {
             return;
         }
         future.thenAccept(result -> {
-            endAction(actionId);
             runForViewer(viewer, () -> {
-                applyFeedback(viewer, result);
-                openMain(viewer, session.targetId(), session.page());
-            });
+                try {
+                    applyFeedback(viewer, result);
+                    openMain(viewer, session.targetId(), session.page());
+                } finally {
+                    endAction(actionId);
+                }
+            }, () -> endAction(actionId));
         }).exceptionally(ex -> {
-            endAction(actionId);
             runForViewer(viewer, () -> {
-                messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
-            });
+                try {
+                    messageService.send(viewer, "error.storage", Map.of("reason", failureMessage(ex)));
+                } finally {
+                    endAction(actionId);
+                }
+            }, () -> endAction(actionId));
             return null;
         });
     }
 
-    private void restoreUndeliveredArmor(UUID targetId, int wardrobeSlot, ArmorPiece piece, ItemStack itemStack) {
+    private CompletableFuture<Void> restoreUndeliveredArmor(
+            UUID targetId,
+            int wardrobeSlot,
+            ArmorPiece piece,
+            ItemStack itemStack
+    ) {
         if (piece == null || itemStack == null || itemStack.getType().isAir()) {
-            return;
+            return CompletableFuture.completedFuture(null);
         }
-        wardrobeService.restoreArmorPieceIfEmpty(targetId, wardrobeSlot, piece.key(), itemStack)
+        return wardrobeService.restoreArmorPieceIfEmpty(targetId, wardrobeSlot, piece.key(), itemStack)
                 .thenAccept(restored -> {
                     if (!restored) {
                         auditLogger.record(
@@ -545,7 +575,10 @@ public final class WardrobeGuiController {
                                 Map.of("slot", wardrobeSlot, "piece", piece.key()));
                     }
                 })
-                .exceptionally(ex -> {
+                .handle((ignored, ex) -> {
+                    if (ex == null) {
+                        return null;
+                    }
                     auditLogger.error(
                             "ARMOR_RETURN_ERROR",
                             targetId,
@@ -717,7 +750,7 @@ public final class WardrobeGuiController {
                     return;
                 }
                 skipped.run();
-            });
+            }, skipped);
             return true;
         } catch (IllegalStateException ignored) {
             skipped.run();

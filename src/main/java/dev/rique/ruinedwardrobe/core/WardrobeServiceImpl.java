@@ -438,7 +438,13 @@ public final class WardrobeServiceImpl implements WardrobeService {
     }
 
     public CompletableFuture<Boolean> restoreArmorPieceIfEmpty(UUID playerId, int slot, String piece, ItemStack itemStack) {
-        if (itemStack == null || itemStack.getType().isAir() || !isValidPieceType(piece)) {
+        if (playerId == null
+                || slot < 1
+                || itemStack == null
+                || itemStack.getType().isAir()
+                || itemStack.getAmount() != 1
+                || !isValidPieceType(piece)
+                || !isMatchingArmorPiece(itemStack.getType(), piece)) {
             return CompletableFuture.completedFuture(false);
         }
         ItemStack restored = bindingService.unbindCopy(itemStack);
@@ -592,7 +598,7 @@ public final class WardrobeServiceImpl implements WardrobeService {
                 } catch (Throwable throwable) {
                     future.completeExceptionally(throwable);
                 }
-            });
+            }, () -> future.completeExceptionally(new IllegalStateException("Player retired before action")));
         } catch (Throwable throwable) {
             future.completeExceptionally(throwable);
         }

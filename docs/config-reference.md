@@ -2,7 +2,8 @@
 
 ## Version Guards
 - `config.yml` requires `config-version: 6`; `gui.yml` requires `config-version: 2`.
-- If version mismatches, RuinedWardrobe backs up the old file and regenerates the latest template automatically.
+- Older versions are backed up and upgraded to the latest template while configured values are preserved.
+- A config newer than the plugin supports stops startup instead of being downgraded.
 - Runtime target is Paper/Folia `1.21` through `26.2` on Java `21+`.
 
 ## `config.yml` Highlights

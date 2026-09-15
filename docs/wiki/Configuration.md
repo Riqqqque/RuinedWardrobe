@@ -6,7 +6,7 @@ Main file:
 plugins/RuinedWardrobe/config.yml
 ```
 
-RuinedWardrobe backs up and regenerates config files when their `config-version` does not match the bundled template. That keeps older configs from silently missing new safety settings.
+RuinedWardrobe backs up older config files, writes the current template, and carries configured values forward. A config newer than the installed plugin supports stops startup instead of being destructively downgraded.
 
 > [!NOTE]
 > `gui.yml` controls the inventory layout. `lang/en_US.yml` controls visible text. `config.yml` controls behavior, storage, integrations, and performance.

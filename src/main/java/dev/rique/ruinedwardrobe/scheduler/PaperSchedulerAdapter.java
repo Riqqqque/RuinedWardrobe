@@ -1,6 +1,7 @@
 package dev.rique.ruinedwardrobe.scheduler;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -21,14 +22,41 @@ public final class PaperSchedulerAdapter implements SchedulerAdapter {
 
     @Override
     public TaskHandle runGlobal(Runnable runnable) {
+        if (Bukkit.isPrimaryThread()) {
+            runnable.run();
+            return () -> {
+            };
+        }
         BukkitTask task = Bukkit.getScheduler().runTask(plugin, runnable);
         return task::cancel;
     }
 
     @Override
     public TaskHandle runPlayer(Player player, Runnable runnable) {
-        BukkitTask task = Bukkit.getScheduler().runTask(plugin, runnable);
+        return runPlayer(player, runnable, () -> {
+        });
+    }
+
+    @Override
+    public TaskHandle runPlayer(Player player, Runnable runnable, Runnable retired) {
+        if (Bukkit.isPrimaryThread()) {
+            runnable.run();
+            return () -> {
+            };
+        }
+        BukkitTask task = Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) {
+                runnable.run();
+            } else {
+                retired.run();
+            }
+        });
         return task::cancel;
+    }
+
+    @Override
+    public TaskHandle runLocation(Location location, Runnable runnable) {
+        return runGlobal(runnable);
     }
 
     @Override
